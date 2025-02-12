@@ -17,7 +17,8 @@ class Logger:
         script = os.path.basename(sys.argv[0])
         script_name = os.path.splitext(script)[0]
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        log_file = os.path.join(log_dir, f"{script_name}_{timestamp}.log")
+        pid = os.getpid()
+        log_file = os.path.join(log_dir, f"{script_name}_pid{pid}_{timestamp}.log")
 
         # 创建 logger 对象并设置日志级别为 INFO
         self.logger = logging.getLogger(name)
@@ -42,9 +43,10 @@ class Logger:
     def _get_formatter(simple: bool):
         # 有两种日志格式，一种简单一些，只包含时间、级别和消息，另一种包含文件名和行号
         if simple:
-            return logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s')
+            return logging.Formatter('[%(asctime)s] [%(levelname)s|%(module)s] %(message)s')
         else:
-            return logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s (%(filename)s %(funcName)s#%(lineno)d)')
+            return logging.Formatter('[%(asctime)s] [%(levelname)s|%(module)s] %(message)s \n'
+                                     '(%(filename)s %(funcName)s#%(lineno)d)')
 
     def _log_initial_info(self):
         # 记录脚本的初始信息
