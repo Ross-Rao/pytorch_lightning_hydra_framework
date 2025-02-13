@@ -66,6 +66,14 @@ class Logger:
 
 
 if __name__ == "__main__":
-    # 创建 Logger 实例并记录一条信息
-    log = Logger().logger
-    log.info("Hello, World!")
+    from multiprocessing import Process
+
+    def run_logger():
+        logger = Logger(name="test_logger").logger
+        logger.info("This is a test log message.")
+
+    processes = [Process(target=run_logger) for _ in range(5)]
+    for p in processes:
+        p.start()
+    for p in processes:
+        p.join()
