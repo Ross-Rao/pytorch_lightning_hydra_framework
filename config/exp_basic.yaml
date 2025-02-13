@@ -1,0 +1,41 @@
+# This file is used to configure the hydra framework for the project.
+
+
+experiment_location: "${oc.env:EXPERIMENT_LOCATION, ./exp}"
+job_location: "${experiment_location}/${now:%Y-%m-%d_%H-%M-%S}_${hydra.job.name}"
+
+hydra:
+  job:
+    name: job
+  run:
+    dir: "${job_location}"
+  sweep:
+    dir: "${job_location}"
+    subdir: "${hydra.job.num}"
+
+ # Configure logging
+  job_logging:
+    version: 1
+    disable_existing_loggers: false
+    formatters:
+      simple:
+        format: '[%(asctime)s][%(levelname)s|%(module)s] %(message)s'
+      detailed:
+        format: '[%(asctime)s][%(levelname)s|%(module)s] %(message)s (%(pathname)s:%(funcName)s#%(lineno)d)'
+    handlers:
+      stream:
+        class: logging.StreamHandler
+        formatter: simple
+      file:
+        class: logging.FileHandler
+        formatter: detailed
+        filename: '${job_location}/job.log'
+        mode: 'a'
+    root:
+      level: INFO
+      handlers: [stream, file]
+    loggers:
+      hydra:
+        level: INFO
+        handlers: [stream, file]
+        propagate: false
