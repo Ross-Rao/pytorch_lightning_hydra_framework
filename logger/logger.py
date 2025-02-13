@@ -24,6 +24,7 @@ class Logger:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)
 
+        # 创建文件和控制台两种 Handler，分别用于输出到文件和控制台
         fh = logging.FileHandler(log_file)
         fh.setLevel(logging.INFO)
         fh.setFormatter(self._get_formatter(simple=False))
