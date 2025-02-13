@@ -43,9 +43,9 @@ class Logger:
     def _get_formatter(simple: bool):
         # 有两种日志格式，一种简单一些，只包含时间、级别和消息，另一种包含文件名和行号
         if simple:
-            return logging.Formatter('[%(asctime)s] [%(levelname)s|%(module)s] %(message)s')
+            return logging.Formatter('[%(asctime)s][%(levelname)s|%(module)s] %(message)s')
         else:
-            return logging.Formatter('[%(asctime)s] [%(levelname)s|%(module)s] %(message)s \n'
+            return logging.Formatter('[%(asctime)s][%(levelname)s|%(module)s] %(message)s\n'
                                      '(%(filename)s %(funcName)s#%(lineno)d)')
 
     def _log_initial_info(self):
