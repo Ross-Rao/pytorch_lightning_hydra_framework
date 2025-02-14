@@ -6,15 +6,22 @@ from datetime import datetime
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.loggers import TensorBoardLogger
+import pytorch_lightning as pl
+
+from trainer.callbacks import get_callbacks
+
 
 # 获取 logger
 logger = logging.getLogger(__name__)
 
 
-def _log_initial_info(cfg: DictConfig):
-    """
-    记录脚本的初始信息
-    """
+@hydra.main(
+    version_base="1.2",
+    config_path=os.getenv('CONFIGS_LOCATION', 'config'),
+    config_name="exp_example",
+)
+def main(cfg: DictConfig):
+    # print the config
     script = os.path.basename(sys.argv[0])
     script_name = os.path.splitext(script)[0]
     args = sys.argv[1:]
@@ -27,15 +34,6 @@ def _log_initial_info(cfg: DictConfig):
     logger.info(f"Start Time: {start_time}")
     logger.info("\n" + OmegaConf.to_yaml(cfg))
 
-
-@hydra.main(
-    version_base="1.2",
-    config_path=os.getenv('CONFIGS_LOCATION', 'config'),
-    config_name="exp_example",
-)
-def main(cfg: DictConfig):
-    _log_initial_info(cfg)  # 打印当前内容
-
     # build trainer
     if HydraConfig.get().mode == hydra.types.RunMode.RUN:
         work_dir = HydraConfig.get().run.dir
@@ -44,7 +42,12 @@ def main(cfg: DictConfig):
                                 HydraConfig.get().sweep.subdir)
     cfg = OmegaConf.to_container(cfg, resolve=True)
     tb_logger = TensorBoardLogger(save_dir=work_dir)
-
+    callbacks = get_callbacks(cfg.get("callbacks"))
+    trainer = pl.Trainer(
+        **cfg.get("trainer"),
+        logger=tb_logger,
+        callbacks=callbacks,
+    )
     return 42
 
 
