@@ -1,7 +1,7 @@
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import *
-from pytorch_lightning_framework.DataModule.random_dataset import RandomDataModule
-from pytorch_lightning_framework.Model.simple_model import SimpleModel
+from DataModule.random_dataset import RandomDataModule
+from Model.simple_model import SimpleModel
 
 
 __all__ = ['get_callbacks']

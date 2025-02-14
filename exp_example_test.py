@@ -30,10 +30,13 @@ def _log_initial_info(cfg: DictConfig):
 
 @hydra.main(
     version_base="1.2",
-    config_path=os.getenv('CONFIGS_LOCATION', './config'),
+    config_path=os.getenv('CONFIGS_LOCATION', 'config'),
     config_name="exp_example",
 )
 def main(cfg: DictConfig):
+    _log_initial_info(cfg)  # 打印当前内容
+
+    # build trainer
     if HydraConfig.get().mode == hydra.types.RunMode.RUN:
         work_dir = HydraConfig.get().run.dir
     else:
@@ -41,7 +44,6 @@ def main(cfg: DictConfig):
                                 HydraConfig.get().sweep.subdir)
     cfg = OmegaConf.to_container(cfg, resolve=True)
     tb_logger = TensorBoardLogger(save_dir=work_dir)
-    _log_initial_info(cfg)  # 打印当前内容
 
     return 42
 
