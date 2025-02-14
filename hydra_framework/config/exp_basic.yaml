@@ -4,15 +4,14 @@
 
 
 experiment_location: "${oc.env:EXPERIMENT_LOCATION, ./exp}"
-job_location: "${experiment_location}/${now:%Y-%m-%d_%H-%M-%S}_${hydra.job.name}"
 
 hydra:
   job:
     name: job
   run:
-    dir: "${job_location}"
+    dir: "${experiment_location}/${now:%Y-%m-%d_%H-%M-%S}_${hydra.job.name}"
   sweep:
-    dir: "${job_location}"
+    dir: "${experiment_location}/${now:%Y-%m-%d_%H-%M-%S}_${hydra.job.name}"
     subdir: "${hydra.job.num}"
 
  # Configure logging
@@ -31,7 +30,7 @@ hydra:
       file:
         class: logging.FileHandler
         formatter: detailed
-        filename: '${job_location}/job.log'
+        filename: '${experiment_location}/${now:%Y-%m-%d_%H-%M-%S}_${hydra.job.name}/job.log'
         mode: 'a'
     root:
       level: INFO
