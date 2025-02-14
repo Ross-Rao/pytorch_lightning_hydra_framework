@@ -1,7 +1,7 @@
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import *
-from DataModule.random_dataset import RandomDataModule
-from Model.simple_model import SimpleModel
+from dataModule.random_dataset import RandomDataModule
+from model.simple_model import SimpleModel
 
 
 __all__ = ['get_callbacks']
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     }
     callbacks = get_callbacks(callback_dt)
 
-    # 初始化 Trainer
+    # 初始化 trainer
     trainer = Trainer(
         max_epochs=100,
         callbacks=callbacks,
