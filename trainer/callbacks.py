@@ -1,7 +1,7 @@
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import *
 from dataModule.random_dataset import RandomDataModule
-from model.simple_model import SimpleModel
+from module.simple_module import SimpleModule
 
 CALLBACK_DT = {
     'ModelCheckpoint': ModelCheckpoint,
@@ -36,7 +36,7 @@ def get_callbacks(callback_cfg: dict, extra_callbacks: list = None):
 if __name__ == "__main__":
     # 初始化数据模块和模型
     data_module = RandomDataModule(batch_size=32)
-    model = SimpleModel()
+    model = SimpleModule()
 
     # 配置 ModelCheckpoint 回调
     callback_dt = {

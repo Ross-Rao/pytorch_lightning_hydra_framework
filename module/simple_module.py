@@ -3,10 +3,10 @@ import torch.optim as optim
 from pytorch_lightning import LightningModule
 
 
-__all__ = ["SimpleModel"]
+__all__ = ["SimpleModule"]
 
 
-class SimpleModel(LightningModule):
+class SimpleModule(LightningModule):
     """
     used to test the PyTorch Lightning Trainer.
     """
