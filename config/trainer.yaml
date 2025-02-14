@@ -1,7 +1,7 @@
 # trainer.yaml
 # This file contains the configuration for the pytorch_lightning.trainer.
 
-callbacks:
+callbacks:  # inline definition of callbacks, don't change the name
     ModelCheckpoint:
         filename: "model_{epoch:02d}_{val_loss:.2f}"
         monitor: "val_loss"
@@ -14,7 +14,7 @@ callbacks:
         mode: 'min'
     TQDMProgressBar:
         refresh_rate: 1
-trainer:
+trainer:  # inline definition of trainer, don't change the name
     max_epochs: 400
     accelerator: 'gpu'
     devices: 1
