@@ -5,13 +5,13 @@ from omegaconf import DictConfig, OmegaConf
 import logging
 
 # 获取 logger
-logger = logging.getLogger('hydra')
+logger = logging.getLogger(__name__)
 
 
 @hydra.main(
     version_base="1.2",
     config_path=os.getenv('CONFIGS_LOCATION', os.getcwd()),
-    config_name="hydra_basic",
+    config_name="exp_basic",
 )
 def main(cfg: DictConfig):
     if HydraConfig.get().mode == hydra.types.RunMode.RUN:
@@ -21,7 +21,7 @@ def main(cfg: DictConfig):
             HydraConfig.get().sweep.dir, HydraConfig.get().sweep.subdir
         )
     logger.info(work_dir)
-    logger.info(OmegaConf.to_yaml(cfg))
+    print(OmegaConf.to_yaml(cfg))
     return 42
 
 
