@@ -7,6 +7,9 @@ __all__ = ["SimpleModel"]
 
 
 class SimpleModel(LightningModule):
+    """
+    used to test the PyTorch Lightning Trainer.
+    """
     def __init__(self):
         super().__init__()
         self.model = nn.Sequential(

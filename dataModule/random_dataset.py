@@ -5,7 +5,6 @@ from torch.utils.data import DataLoader, Dataset
 __all__ = ['RandomDataset', 'RandomDataModule']
 
 
-# 定义一个简单的数据集
 class RandomDataset(Dataset):
     def __init__(self, size, length):
         self.len = length
@@ -18,8 +17,10 @@ class RandomDataset(Dataset):
         return self.len
 
 
-# 定义一个简单的 PyTorch Lightning 数据模块
 class RandomDataModule(LightningDataModule):
+    """
+    used to create a simple dataset for trainer testing.
+    """
     def __init__(self, batch_size=32):
         super().__init__()
         self.val_dataset = None
