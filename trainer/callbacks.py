@@ -1,13 +1,9 @@
+import pytorch_lightning
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import *
 from dataModule.random_dataset import RandomDataModule
 from module.simple_module import SimpleModule
 
-CALLBACK_DT = {
-    'ModelCheckpoint': ModelCheckpoint,
-    'EarlyStopping': EarlyStopping,
-    'TQDMProgressBar': TQDMProgressBar,
-}
+CALLBACK = ['ModelCheckpoint', 'EarlyStopping', 'TQDMProgressBar', ]
 
 __all__ = ['get_callbacks']
 
@@ -17,14 +13,14 @@ def get_callbacks(callback_cfg: dict, extra_callbacks: list = None):
     transform callback config to callback instance, config are expected from yaml files.
 
     :param extra_callbacks: list of extra callback instance.
-    :param callback_cfg: dict of callback config, key must be in CALLBACK_DT.keys()
+    :param callback_cfg: dict of callback config, key must be in CALLBACK_DT
     :return: list of callback instance
     """
-    assert set(callback_cfg.keys()).issubset(set(CALLBACK_DT.keys())), \
-        f"callback config key must be in {CALLBACK_DT.keys()}"
+    assert set(callback_cfg.keys()).issubset(set(CALLBACK)), \
+        f"callback config key must be in {CALLBACK}"
     callback_lt = []
     for key in callback_cfg.keys():
-        callback = CALLBACK_DT[key](**callback_cfg[key])
+        callback = getattr(pytorch_lightning.callbacks, key)(**callback_cfg[key])
         callback_lt.append(callback)
 
     if extra_callbacks is None:
