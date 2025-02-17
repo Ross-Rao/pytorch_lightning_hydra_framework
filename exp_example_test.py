@@ -7,8 +7,9 @@ from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
-
+# local import
 from trainer.callbacks import get_callbacks
+from module.example_module import ExampleModule
 
 
 # 获取 logger
@@ -48,6 +49,9 @@ def main(cfg: DictConfig):
         logger=tb_logger,
         callbacks=callbacks,
     )
+
+    # build model
+    model = ExampleModule(**cfg.get("model"), **cfg.get("optimizer"), **cfg.get("lr_scheduler"))
     return 42
 
 
