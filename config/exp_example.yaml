@@ -3,4 +3,5 @@
 defaults:
     - exp_basic  # refer to `exp_basic.yaml`
     - trainer  # refer to `trainer.yaml`
+    - module  # refer to `module.yaml`
     - _self_  # 占位符：表示当前文件，在defaults的最后一行声明，可以保证当前文件的配置可覆盖之前的配置
