@@ -1,18 +1,9 @@
 # module.yaml
 
-# optimizer and lr_scheduler: used in module/example_module.py
-optimizer: "SGD"
-optim_params:
-    lr: 1e-3
-    weight_decay: 0.0
-#lr_scheduler: 'ReduceLROnPlateau'
-#lr_scheduler_params:
-#    mode: "min"
-#    factor: 0.5
-#    patience: 10
-#    min_lr: 1e-6
-#lr_scheduler_other_params:
-#    monitor: "Error/Val_total"
-#    interval: "epoch"
-#    frequency: 1
+defaults:
+    - optimizer: SGD
+    - model: ResNet18
+    - lr_scheduler: ReduceLROnPlateau
+    - _self_
+
 
