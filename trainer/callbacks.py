@@ -1,6 +1,6 @@
 import pytorch_lightning
 from pytorch_lightning import Trainer
-from dataModule.random_dataset import RandomDataModule
+from module.dataModule.random_dataset import RandomDataModule
 from module.simple_module import SimpleModule
 
 CALLBACK = ['ModelCheckpoint', 'EarlyStopping', 'TQDMProgressBar', ]
