@@ -10,6 +10,7 @@ class ExampleModule(pl.LightningModule):
                  model_params: dict,
                  optimizer: str,
                  optimizer_params: dict,
+                 criterion: str,
                  lr_scheduler: str = None,
                  lr_scheduler_params: dict = None,
                  lr_scheduler_other_params: dict = None):
@@ -19,6 +20,9 @@ class ExampleModule(pl.LightningModule):
 
         # optimizer settings
         self.optimizer = getattr(torch.optim, optimizer)(self.parameters(), **optimizer_params)
+
+        # loss function settings
+        self.criterion = getattr(torch.nn, criterion)()
 
         # lr_scheduler settings
         lr_lt = [lr_scheduler, lr_scheduler_params, lr_scheduler_other_params]
@@ -41,3 +45,12 @@ class ExampleModule(pl.LightningModule):
             return [self.optimizer], [self.scheduler]
         else:
             return self.optimizer
+
+    def forward(self, x):
+        return self.model(x)
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self.model(x)
+        loss = self.criterion(y_hat, y)
+        return loss

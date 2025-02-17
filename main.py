@@ -51,7 +51,8 @@ def main(cfg: DictConfig):
     )
 
     # build model
-    model = ExampleModule(**cfg.get("model"), **cfg.get("optimizer"), **cfg.get("lr_scheduler"))
+    model = ExampleModule(**cfg.get("model"), **cfg.get("optimizer"), **cfg.get("lr_scheduler"),
+                          criterion=cfg.get("criterion"))
     return 42
 
 

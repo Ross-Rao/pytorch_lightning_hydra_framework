@@ -6,4 +6,5 @@ defaults:
     - lr_scheduler: empty
     - _self_
 
-
+#criterion: 'CrossEntropyLoss'
+criterion: 'MSELoss'
