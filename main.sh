@@ -5,5 +5,5 @@
 #export CONFIGS_LOCATION=/path/to/configs
 
 # Execute the Python script, please use correct conda env.
-python exp_example_test.py
-#python exp_example_test.py -m +param=1,2,3  # Example of multirun
+python main.py
+#python main.py -m +param=1,2,3  # Example of multirun

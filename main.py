@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @hydra.main(
     version_base="1.2",
     config_path=os.getenv('CONFIGS_LOCATION', 'config'),
-    config_name="exp_example",
+    config_name="config",
 )
 def main(cfg: DictConfig):
     # print the config
