@@ -1,0 +1,8 @@
+# ResNet18.yaml
+# used in module/example_module.py and module/models/ResNet18.py
+
+model: "ResNet18"
+model_params:
+  activation: ReLU
+  in_channels: 3
+  out_features: 10

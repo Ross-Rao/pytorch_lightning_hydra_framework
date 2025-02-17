@@ -1,0 +1,13 @@
+# ReduceLROnPlateau.yaml
+# lr_scheduler: used in module/example_module.py
+
+lr_scheduler: 'ReduceLROnPlateau'
+lr_scheduler_params:
+    mode: "min"
+    factor: 0.5
+    patience: 10
+    min_lr: 1e-6
+lr_scheduler_other_params:
+    monitor: "Error/Val_total"
+    interval: "epoch"
+    frequency: 1
