@@ -8,7 +8,6 @@ from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
 # local import
-from trainer.callbacks import get_callbacks
 from module.example_module import ExampleModule
 
 
@@ -41,9 +40,15 @@ def main(cfg: DictConfig):
     else:
         work_dir = os.path.join(HydraConfig.get().sweep.dir,
                                 HydraConfig.get().sweep.subdir)
+
     cfg = OmegaConf.to_container(cfg, resolve=True)
     tb_logger = TensorBoardLogger(save_dir=work_dir)
-    callbacks = get_callbacks(cfg.get("callbacks"))
+
+    callbacks = []  # if you want to use your own callbacks, you can add them here
+    for key in cfg.get("callbacks").keys():
+        callback = getattr(pl.callbacks, key)(**cfg.get("callbacks")[key])
+        callbacks.append(callback)
+
     trainer = pl.Trainer(
         **cfg.get("trainer"),
         logger=tb_logger,
