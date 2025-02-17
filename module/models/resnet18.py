@@ -1,6 +1,14 @@
 import torch
 import torch.nn as nn
 
+__all__ = [
+    "ResNet18",
+    "MiniResNet",
+    "ResNet18H2",
+    "MiniResNet2H",
+    "ResNet3D18",
+]
+
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride, activation="ReLU", bias=False, ):
