@@ -3,7 +3,7 @@
 defaults:
     - optimizer: SGD
     - model: ResNet18
-    - lr_scheduler: ReduceLROnPlateau
+    - lr_scheduler: empty
     - _self_
 
 
