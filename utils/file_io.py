@@ -17,7 +17,7 @@ def dir_to_df(root: str, ext: str, name_template: str = None) -> pd.DataFrame:
         name_template (str, optional): A template for extracting information from file names.
 
     Returns:
-        pd.DataFrame: A DataFrame containing file paths and extracted information.
+        pd.DataFrame: A DataFrame containing file paths and extracted information, all type is str.
 
     Example:
         >>> # Assuming the following directory structure:
