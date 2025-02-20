@@ -4,7 +4,6 @@ import pandas as pd
 import logging
 import nibabel
 import torch
-import torch.nn.functional as F
 from PIL import Image
 from tqdm import tqdm
 from torchvision import transforms
