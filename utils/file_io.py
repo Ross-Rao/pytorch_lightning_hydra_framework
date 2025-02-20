@@ -79,7 +79,7 @@ def dir_to_df(root: str, ext: str, name_template: str = None) -> pd.DataFrame:
 
 
 def preprocess_data(metadata: pd.DataFrame, test_split: float, val_split: float, save_path: str,
-                    transform: dict = None, seed: int = 42, nii_pad_channels: int = 220) -> None:
+                    transform: dict = None, seed: int = 42) -> None:
     """
     Preprocesses the data by splitting it into training, validation, and test sets, applying transformations,
     and saving the processed data to .pt files.
@@ -91,7 +91,6 @@ def preprocess_data(metadata: pd.DataFrame, test_split: float, val_split: float,
         save_path (str): Directory where the processed data will be saved.
         transform (dict, optional): Dictionary specifying the transformations to be applied. Defaults to None.
         seed (int, optional): Random seed for reproducibility. Defaults to 42.
-        nii_pad_channels (int, optional): Number of channels to pad the .nii.gz files to. Defaults to 220.
 
     Returns:
         None
