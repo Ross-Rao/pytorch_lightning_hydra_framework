@@ -1,7 +1,11 @@
+import logging
 import nibabel as nib
 import torch
 import torch.nn.functional as F
 from torchvision import transforms
+
+
+logger = logging.getLogger(__name__)
 
 
 class ResampleNifti:
@@ -117,22 +121,72 @@ class PadChannels:
 
         current_channels = img_tensor.shape[self.dim]
 
-        if current_channels >= self.target_channels:
+        if current_channels == self.target_channels:
+            return img_tensor
+        elif current_channels > self.target_channels:
             raise ValueError(f"Input Tensor already has {current_channels} channels, "
                              f"which is not less than the target {self.target_channels} channels.")
+        else:
+            # Calculate padding sizes
+            pad_front = (self.target_channels - current_channels) // 2
+            pad_back = self.target_channels - current_channels - pad_front
 
-        # Calculate padding sizes
-        pad_front = (self.target_channels - current_channels) // 2
-        pad_back = self.target_channels - current_channels - pad_front
+            # Prepare padding tuple (only pad along the specified dimension)
+            pad_tuple = [0, 0] * len(img_tensor.shape)
+            pad_tuple[2 * self.dim] = pad_front
+            pad_tuple[2 * self.dim + 1] = pad_back
 
-        # Prepare padding tuple (only pad along the specified dimension)
-        pad_tuple = [0, 0] * len(img_tensor.shape)
-        pad_tuple[2 * self.dim] = pad_front
-        pad_tuple[2 * self.dim + 1] = pad_back
-
-        # Apply padding using F.pad
-        padded_tensor = F.pad(img_tensor, tuple(reversed(pad_tuple)), mode='constant', value=self.value)
-        return padded_tensor
+            # Apply padding using F.pad
+            padded_tensor = F.pad(img_tensor, tuple(reversed(pad_tuple)), mode='constant', value=self.value)
+            return padded_tensor
 
     def __repr__(self):
         return f"{self.__class__.__name__}(target_channels={self.target_channels}, dim={self.dim}, value={self.value})"
+
+
+class NiftiToTensor:
+    """
+    A transform to convert a NIfTI image (nib.Nifti1Image) to a PyTorch Tensor.
+
+    This transform assumes the input is a nib.Nifti1Image object. It extracts the image data
+    and converts it to a PyTorch Tensor with a specified data type. Optionally, it can normalize
+    the data to the range [0, 1] by shifting and scaling the data.
+
+    Attributes:
+        dtype (torch.dtype): The target data type for the output Tensor (default: torch.float32).
+        normalize (bool): Whether to normalize the data to the range [0, 1] (default: False).
+
+    Example:
+        >>> nifti_image = nib.load("path_to_your_image.nii.gz")
+        >>> to_tensor = NiftiToTensor(dtype=torch.float64)
+        >>> tensor_data = to_tensor(nifti_image)
+        >>> print(tensor_data.shape)
+        torch.Size([x, y, z])
+        >>> print(tensor_data.dtype)
+        torch.float64
+    """
+
+    def __init__(self, dtype=torch.float32, normalize=False):
+        self.dtype = dtype
+        self.normalize = normalize
+
+    def __call__(self, nifti_image):
+        if not isinstance(nifti_image, nib.Nifti1Image):
+            raise TypeError("Input must be a nib.Nifti1Image object.")
+
+        tensor_data = torch.tensor(nifti_image.get_fdata(), dtype=self.dtype)
+
+        # Normalize data to [0, 1] if required
+        if self.normalize:
+            min_val = tensor_data.min()
+            max_val = tensor_data.max()
+            if min_val < 0:
+                logger.warning("Data contains negative values. Normalizing by shifting and scaling.")
+
+            # Shift and scale the data to [0, 1]
+            tensor_data = (tensor_data - min_val) / (max_val - min_val)
+
+        return tensor_data
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(dtype={self.dtype})"
