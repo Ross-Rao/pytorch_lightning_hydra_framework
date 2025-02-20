@@ -56,7 +56,7 @@ def main(cfg: DictConfig):
         callbacks=callback_lt,
     )
 
-    # preprocess data
+    # preprocess data (this part needs specific implementation)
     dataset_cfg = cfg.get("dataset")
     data_root = dataset_cfg.get('metadata').get('path')
     inline_files = ['train.pt', 'val.pt', 'test.pt', 'train_targets.pt', 'val_targets.pt', 'test_targets.pt']
