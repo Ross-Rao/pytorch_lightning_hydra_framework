@@ -23,12 +23,12 @@ def loader(path: str):
         return default_loader(path)
 
 
-def dir_to_df(root: str, ext: str, name_template: str = None) -> pd.DataFrame:
+def dir_to_df(path: str, ext: str, name_template: str = None) -> pd.DataFrame:
     """
     Converts files in a directory to a pandas DataFrame.
 
     Args:
-        root (str): The root directory containing the files.
+        path (str): The root directory containing the files.
         ext (str): The file extension to filter files.
         name_template (str, optional): A template for extracting information from file names.
 
@@ -46,9 +46,9 @@ def dir_to_df(root: str, ext: str, name_template: str = None) -> pd.DataFrame:
         >>> # wch = os.path.join(data_root, 'HCC-WCH', 'old')
         >>> # df = dir_to_df(root=wch, ext=".nii.gz", name_template='{patient_number}-{label}')
     """
-    assert os.path.exists(root) and os.path.isdir(root), f"Path {root} does not exist or is not a directory."
+    assert os.path.exists(path) and os.path.isdir(path), f"Path {path} does not exist or is not a directory."
 
-    file_paths = [os.path.join(root, f) for f in os.listdir(root) if f.endswith(ext)]
+    file_paths = [os.path.join(path, f) for f in os.listdir(path) if f.endswith(ext)]
     file_names = [os.path.basename(f)[: -len(ext)] for f in file_paths]
     if ext == '.nii.gz':
         image_shapes = [nibabel.load(path).get_fdata().shape for path in file_paths]
@@ -100,7 +100,7 @@ def preprocess_data(metadata: pd.DataFrame, test_split: float, val_split: float,
         >>> wch = os.path.join(data_root, 'HCC-WCH', 'old')
         >>> save = os.path.join(data_root, 'HCC-WCH', 'preprocessed')
 
-        >>> df = dir_to_df(root=wch, ext=".nii.gz", name_template='{patient_number}-{label}')
+        >>> df = dir_to_df(path=wch, ext=".nii.gz", name_template='{patient_number}-{label}')
         >>> preprocess_data(metadata=df, test_split=0.2, val_split=0.1, save_path=save,
         ...                 transform={"ResampleNifti": None,
         ...                            "PermuteDimensions": {"dim_order": (2, 0, 1)},
@@ -113,10 +113,11 @@ def preprocess_data(metadata: pd.DataFrame, test_split: float, val_split: float,
         >>> wch = os.path.join(data_root, 'ISIC2018', 'ISIC2018_Task1_Test_GroundTruth')
         >>> save = os.path.join(data_root, 'ISIC2018', 'preprocessed')
 
-        >>> df = dir_to_df(root=wch, ext=".png", name_template='ISIC_{patient_number}_segmentation')
+        >>> df = dir_to_df(path=wch, ext=".png", name_template='ISIC_{patient_number}_segmentation')
         >>> preprocess_data(metadata=df, test_split=0.2, val_split=0.1, save_path=save,
         ...                 transform={"Resize": {"size": 256}, "RandomCrop": {"size": 224}, 'ToTensor': None, })
     """
+    assert {'path', 'label'}.issubset(metadata.columns), "metadata must contain 'path' and 'label' columns."
     if not os.path.exists(save_path) or not os.path.isdir(save_path):
         os.makedirs(save_path)
 
@@ -137,11 +138,12 @@ def preprocess_data(metadata: pd.DataFrame, test_split: float, val_split: float,
     for path_df, name in zip([val, test, train], ["val", "test", "train"]):
         # read images and apply transform (custom or torchvision)
         images = [transform(loader(path)) for path in tqdm(path_df['path'].tolist())]
-
+        labels = torch.tensor(path_df['label'].tolist())
         try:
             # must keep the same size of images
             # use CenterCrop or RandomCrop in transform to resize the images
             torch.save(torch.stack(images), os.path.join(save_path, f"{name}.pt"))
+            torch.save(labels, os.path.join(save_path, f"{name}_targets.pt"))
         except Exception as e:
             logger.error(f"Error saving data to {os.path.join(save_path, f'{name}.pt')}:")
             logger.error(e)

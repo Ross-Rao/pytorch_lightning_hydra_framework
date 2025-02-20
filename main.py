@@ -11,6 +11,7 @@ import pytorch_lightning as pl
 from module.example_module import ExampleModule
 from utils import callbacks
 from utils.util import get_multi_attr
+from utils.file_io import dir_to_df, preprocess_data
 
 # 获取 logger
 logger = logging.getLogger(__name__)
@@ -54,6 +55,21 @@ def main(cfg: DictConfig):
         logger=tb_logger,
         callbacks=callback_lt,
     )
+
+    # preprocess data
+    dataset_cfg = cfg.get("dataset")
+    data_root = dataset_cfg.get('metadata').get('path')
+    inline_files = ['train.pt', 'val.pt', 'test.pt', 'train_targets.pt', 'val_targets.pt', 'test_targets.pt']
+
+    if not all([os.path.exists(os.path.join(data_root, 'preprocessed', file)) for file in inline_files]):
+        logger.info("Preprocessing data...")
+
+        metadata = dir_to_df(**dataset_cfg.get('metadata'))  # build metadata csv for checking
+        metadata['label'] = metadata['label'].astype(int)
+        metadata.to_csv(os.path.join(data_root, 'preprocessed', 'metadata.csv'), index=False)
+        preprocess_data(metadata, save_path=os.path.join(data_root, 'preprocessed'), **dataset_cfg.get('preprocess'))
+
+        logger.info("Data preprocessing finished.")
 
     # build model
     model = ExampleModule(**cfg.get("model"), **cfg.get("optimizer"), **cfg.get("lr_scheduler"),

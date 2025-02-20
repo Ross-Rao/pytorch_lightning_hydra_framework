@@ -68,7 +68,7 @@ class PermuteDimensions:
 
         :param dim_order: A tuple specifying the new order of dimensions. For example, (2, 0, 1).
         """
-        self.dim_order = dim_order
+        self.dim_order = dim_order if isinstance(dim_order, tuple) else tuple(dim_order)
 
     def __call__(self, img_tensor):
         if not isinstance(img_tensor, torch.Tensor):

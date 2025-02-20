@@ -1,25 +1,31 @@
 # HCC-WCH dataset
 
-data_root : '${oc.env:DATASET_LOCATION, ./data}'
-path: '${data_root}/HCC-WCH'
 
-# do resampling to 1x1x1
-#transform:
-#  ResampleNifti:
-#  PermuteDimensions: (2, 0, 1)
-#  PadChannels: 220
-#  Resize:
-#    size: 256
-#  CenterCrop:
-#    size: 224
+metadata:
+  path: '${oc.env:DATASET_LOCATION, ./data}/HCC-WCH/old'
+  ext: '.nii.gz'
+  name_template: '{patient_number}-{label}'
+preprocess:
+  test_split: 0.2
+  val_split: 0.1
+  seed: 42
+  # no resampling
+  transform:
+    NiftiToTensor:
+    PermuteDimensions: [2, 0, 1]
+    PadChannels: 88
+    Resize: 256
+    CenterCrop: 224
 
-# no resampling
-transform:
-  NiftiToTensor:
-  PermuteDimensions: (2, 0, 1)
-  PadChannels: 88
-  Resize: 256
-  CenterCrop: 224
+  # do resampling to 1x1x1
+  #transform:
+  #  ResampleNifti:
+  #  PermuteDimensions: (2, 0, 1)
+  #  PadChannels: 220
+  #  Resize:
+  #    size: 256
+  #  CenterCrop:
+  #    size: 224
 
 
 #  Normalize:
