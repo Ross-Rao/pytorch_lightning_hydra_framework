@@ -129,6 +129,7 @@ def preprocess_data(metadata: pd.DataFrame, test_split: float, val_split: float,
         transform = transforms.Compose([transforms.ToTensor()])
     else:
         # if you want to use your own transform, you can add them to utils/transforms.py
+        # they will be imported by get_multi_attr
         transforms_lt = get_multi_attr([custom_transforms, transforms], transform)
         transform = transforms.Compose(transforms_lt)
 

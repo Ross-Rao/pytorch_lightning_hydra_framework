@@ -46,6 +46,7 @@ def main(cfg: DictConfig):
     tb_logger = TensorBoardLogger(save_dir=work_dir)
 
     # if you want to use your own callbacks, you can add them to utils/callbacks.py
+    # they will be imported by get_multi_attr
     callback_lt = get_multi_attr([pl.callbacks, callbacks], cfg.get("callbacks"))
 
     trainer = pl.Trainer(
