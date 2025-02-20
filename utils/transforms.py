@@ -77,6 +77,9 @@ class PermuteDimensions:
         # Use the permute method to reorder dimensions
         return img_tensor.permute(self.dim_order)
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}(dim_order={self.dim_order})"
+
 
 class PadChannels:
     """
