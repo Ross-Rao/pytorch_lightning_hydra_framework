@@ -11,6 +11,7 @@ from torchvision.datasets.folder import default_loader
 from sklearn.model_selection import train_test_split
 # local import
 from utils import transforms as custom_transforms
+from utils.util import get_multi_attr
 
 logger = logging.getLogger(__name__)
 
@@ -102,11 +103,11 @@ def preprocess_data(metadata: pd.DataFrame, test_split: float, val_split: float,
 
         >>> df = dir_to_df(root=wch, ext=".nii.gz", name_template='{patient_number}-{label}')
         >>> preprocess_data(metadata=df, test_split=0.2, val_split=0.1, save_path=save,
-        >>>                 transform={"ResampleNifti": None,
-        >>>                            "PermuteDimensions": {"dim_order": (2, 0, 1)},
-        >>>                            "PadChannels": {"target_channels": 220},
-        >>>                            "Resize": {"size": 256},
-        >>>                            "RandomCrop": {"size": 224},})
+        ...                 transform={"ResampleNifti": None,
+        ...                            "PermuteDimensions": {"dim_order": (2, 0, 1)},
+        ...                            "PadChannels": {"target_channels": 220},
+        ...                            "Resize": {"size": 256},
+        ...                            "RandomCrop": {"size": 224},})
 
         >>> # another example
         >>> data_root = os.getenv("DATASET_LOCATION", '/home/user2/data')
@@ -115,7 +116,7 @@ def preprocess_data(metadata: pd.DataFrame, test_split: float, val_split: float,
 
         >>> df = dir_to_df(root=wch, ext=".png", name_template='ISIC_{patient_number}_segmentation')
         >>> preprocess_data(metadata=df, test_split=0.2, val_split=0.1, save_path=save,
-        >>>                 transform={"Resize": {"size": 256}, "RandomCrop": {"size": 224}, 'ToTensor': None, })
+        ...                 transform={"Resize": {"size": 256}, "RandomCrop": {"size": 224}, 'ToTensor': None, })
     """
     if not os.path.exists(save_path) or not os.path.isdir(save_path):
         os.makedirs(save_path)
@@ -128,21 +129,8 @@ def preprocess_data(metadata: pd.DataFrame, test_split: float, val_split: float,
     if transform is None:
         transform = transforms.Compose([transforms.ToTensor()])
     else:
-        transforms_lt = []  # if you want to use your own transform, you can add them here
-        for key in transform.keys():
-            # if failed, check the key in transforms
-            tf_func = getattr(transforms, key, None)
-            if getattr(transforms, key, None) is None:
-                tf_func = getattr(custom_transforms, key)
-
-            # if failed, check the value of transform[key]
-            if transform[key] is None:
-                tf = tf_func()
-            elif isinstance(transform[key], dict):
-                tf = tf_func(**transform[key])
-            else:
-                tf = tf_func(transform[key])
-            transforms_lt.append(tf)
+        # if you want to use your own transform, you can add them to utils/transforms.py
+        transforms_lt = get_multi_attr([custom_transforms, transforms], transform)
         transform = transforms.Compose(transforms_lt)
 
     # save data to pt file
