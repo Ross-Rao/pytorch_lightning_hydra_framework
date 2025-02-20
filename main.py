@@ -9,7 +9,8 @@ from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
 # local import
 from module.example_module import ExampleModule
-
+from utils import callbacks
+from utils.util import get_multi_attr
 
 # 获取 logger
 logger = logging.getLogger(__name__)
@@ -44,15 +45,13 @@ def main(cfg: DictConfig):
     cfg = OmegaConf.to_container(cfg, resolve=True)
     tb_logger = TensorBoardLogger(save_dir=work_dir)
 
-    callbacks = []  # if you want to use your own callbacks, you can add them here
-    for key in cfg.get("callbacks").keys():
-        callback = getattr(pl.callbacks, key)(**cfg.get("callbacks")[key])
-        callbacks.append(callback)
+    # if you want to use your own callbacks, you can add them to utils/callbacks.py
+    callback_lt = get_multi_attr([pl.callbacks, callbacks], cfg.get("callbacks"))
 
     trainer = pl.Trainer(
         **cfg.get("trainer"),
         logger=tb_logger,
-        callbacks=callbacks,
+        callbacks=callback_lt,
     )
 
     # build model
