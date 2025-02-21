@@ -1,8 +1,12 @@
 # config.yaml
 
 defaults:
+    # hydra settings
     - hydra_basic  # refer to `hydra_basic.yaml`
+    # trainer settings
     - trainer  # refer to `trainer.yaml`
-    - module  # refer to `module.yaml`
+    # model settings
+    - module # refer to `models.yaml`
+    # dataset settings
     - dataset: HCC-WCH  # refer to `dataset/HCC-WCH.yaml`
     - _self_  # 占位符：表示当前文件，在defaults的最后一行声明，可以保证当前文件的配置可覆盖之前的配置

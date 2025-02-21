@@ -87,7 +87,7 @@ def main(cfg: DictConfig):
     logger.info("dataloader built.")
 
     # build model
-    model = ExampleModule(**cfg.get("model"), **cfg.get("optimizer"), **cfg.get("lr_scheduler"),
+    model = ExampleModule(**cfg.get("model"), **cfg.get("optimizer"), **cfg.get("lr_scheduler", {}),
                           criterion=cfg.get("criterion"), train_loader=train_loader,
                           val_loader=val_loader, test_loader=test_loader)
     logger.info("model built.")

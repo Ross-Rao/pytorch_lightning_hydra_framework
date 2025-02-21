@@ -1,6 +1,0 @@
-# empty.yaml
-# if you don't want to use any lr_scheduler, you can use this file.
-
-lr_scheduler:
-lr_scheduler_params:
-lr_scheduler_other_params:

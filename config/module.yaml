@@ -1,10 +1,26 @@
 # module.yaml
 
-defaults:
-    - optimizer: SGD
-    - model: ResNet18
-    - lr_scheduler: empty
-    - _self_
-
-#criterion: 'CrossEntropyLoss'
+# module settings: used in module/example_module.py
 criterion: 'MSELoss'
+optimizer:
+    optimizer: SGD
+    optimizer_params:
+      lr: 1e-3
+      weight_decay: 0.0
+model:
+    model: "ResNet18"
+    model_params:
+        activation: ReLU
+        in_channels: 88
+        out_features: 1
+#lr_scheduler:
+#    lr_scheduler: 'ReduceLROnPlateau'
+#    lr_scheduler_params:
+#        mode: "min"
+#        factor: 0.5
+#        patience: 10
+#        min_lr: 1e-6
+#    lr_scheduler_other_params:
+#        monitor: "Error/Val_total"
+#        interval: "epoch"
+#        frequency: 1

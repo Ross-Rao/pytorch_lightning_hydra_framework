@@ -1,7 +1,0 @@
-# SGD.yaml
-# optimizer: used in module/example_module.py
-
-optimizer: SGD
-optimizer_params:
-  lr: 1e-3
-  weight_decay: 0.0

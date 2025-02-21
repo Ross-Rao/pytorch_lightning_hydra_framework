@@ -14,7 +14,7 @@ class ExampleModule(pl.LightningModule):
                  criterion: str,
                  train_loader: DataLoader,
                  val_loader: DataLoader,
-                 test_loader: DataLoader = None,
+                 test_loader: DataLoader,
                  lr_scheduler: str = None,
                  lr_scheduler_params: dict = None,
                  lr_scheduler_other_params: dict = None):
