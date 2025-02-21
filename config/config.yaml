@@ -2,7 +2,7 @@
 
 defaults:
     # hydra settings
-    - hydra_basic  # refer to `hydra_basic.yaml`
+    - hydra  # refer to `hydra.yaml`
     # trainer settings
     - trainer  # refer to `trainer.yaml`
     # model settings
