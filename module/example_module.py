@@ -69,7 +69,7 @@ class ExampleModule(pl.LightningModule):
 
     def _step(self, batch):
         x, y = batch
-        y_hat = self.model(x)
+        y_hat = self.model(x).reshape(-1)
         loss = self.criterion(y_hat, y)
         return loss
 
