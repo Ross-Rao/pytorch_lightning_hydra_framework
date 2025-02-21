@@ -33,8 +33,8 @@ class ResidualBlock(nn.Module):
 
     def forward(self, x):
         out = self.conv1_bn(x)
-        out = self.conv2_bn(out)
         out = self.act(out)
+        out = self.conv2_bn(out)
         if self.downsample is not None:
             x = self.downsample(x)
         out += x
