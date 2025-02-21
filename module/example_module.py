@@ -79,6 +79,7 @@ class ExampleModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         loss = self._step(batch)
+        self.log("val_loss", loss)  # val_loss is the key for callback
         return loss
 
     def test_step(self, batch, batch_idx):
