@@ -1,5 +1,6 @@
 # HCC-WCH dataset
 
+preprocess_save_path: '${oc.env:DATASET_LOCATION, ./data}/HCC-WCH/preprocessed'
 
 metadata:
   path: '${oc.env:DATASET_LOCATION, ./data}/HCC-WCH/old'
