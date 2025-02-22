@@ -9,7 +9,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
 # local import
 from module.example_module import ExampleModule
-from module.dataModule.example_data_module import ExampleDataModule
+from module.example_data_module import ExampleDataModule
 from utils import callbacks
 from utils.util import get_multi_attr
 
