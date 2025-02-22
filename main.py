@@ -7,13 +7,11 @@ from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
-from torch.utils.data import DataLoader
 # local import
 from module.example_module import ExampleModule
-from module.dataModule.processed_dataset import ProcessedDataset
+from module.dataModule.example_data_module import ExampleDataModule
 from utils import callbacks
 from utils.util import get_multi_attr
-from utils.file_io import dir_to_df, preprocess_data
 
 # 获取 logger
 logger = logging.getLogger(__name__)
@@ -59,42 +57,21 @@ def main(cfg: DictConfig):
     )
     logger.info("trainer built.")
 
-    # preprocess data (this part needs specific implementation)
-    dataset_cfg = cfg.get("dataset")
-    processed_data_root = dataset_cfg.get('preprocess_save_path')
-    inline_files = ['train.pt', 'val.pt', 'test.pt', 'train_targets.pt', 'val_targets.pt', 'test_targets.pt']
-
-    if not all([os.path.exists(os.path.join(processed_data_root, file)) for file in inline_files]):
-        logger.info("Missing processed data, Preprocessing...")
-
-        metadata = dir_to_df(**dataset_cfg.get('metadata'))  # build metadata csv for checking
-        metadata['label'] = metadata['label'].astype(float)
-
-        if not os.path.exists(processed_data_root):
-            os.makedirs(processed_data_root)
-        metadata.to_csv(os.path.join(processed_data_root, 'metadata.csv'), index=False)
-        preprocess_data(metadata, save_path=processed_data_root, **dataset_cfg.get('preprocess'))
-
-        logger.info("Data preprocessing finished.")
-
-    # build dataloader
-    train_dataset = ProcessedDataset(processed_data_root, 'train')
-    val_dataset = ProcessedDataset(processed_data_root, 'val')
-    test_dataset = ProcessedDataset(processed_data_root, 'test')
-    train_loader = DataLoader(train_dataset, **cfg.get("train_loader"))
-    val_loader = DataLoader(val_dataset, **cfg.get("val_loader"))
-    test_loader = DataLoader(test_dataset, **cfg.get("test_loader"))
+    # build data Module
+    datamodule = ExampleDataModule(**cfg.get("dataset"),
+                                   is_valid_label=lambda path: int(os.path.basename(path).split('.')[0].rsplit('-', 1)[-1]))
     logger.info("dataloader built.")
 
     # build model
     model = ExampleModule(**cfg.get("model"), **cfg.get("optimizer"), **cfg.get("lr_scheduler", {}),
-                          criterion=cfg.get("criterion"), train_loader=train_loader,
-                          val_loader=val_loader, test_loader=test_loader)
+                          criterion=cfg.get("criterion"))
     logger.info("model built.")
 
     # train model
-    trainer.fit(model)
+    trainer.fit(model, datamodule)
     logger.info("training finished.")
+    result = trainer.test(model, datamodule)
+    logger.info(f"test result: {result}")
     # trainer.reset_train_dataloader()  # hydra will not reset dataloader automatically
     # trainer.reset_val_dataloader()  # if you use multirun, you need to reset dataloader manually
 

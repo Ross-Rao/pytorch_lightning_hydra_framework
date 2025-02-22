@@ -1,22 +1,29 @@
 # HCC-WCH dataset
 
-preprocess_save_path: '${oc.env:DATASET_LOCATION, ./data}/HCC-WCH/preprocessed'
 
-metadata:
-  path: '${oc.env:DATASET_LOCATION, ./data}/HCC-WCH/old'
-  ext: '.nii.gz'
-  name_template: '{patient_number}-{label}'
-preprocess:
-  test_split: 0.2
-  val_split: 0.1
-  seed: 42
-  # no resampling
-  transform:
-    NiftiToTensor:
-    PermuteDimensions: [2, 0, 1]
-    PadChannels: 88
-    Resize: 256
-    CenterCrop: 224
+data_dir: '${oc.env:DATASET_LOCATION, ./data}/HCC-WCH'
+is_valid_file: '.nii.gz'
+test_split: 0.2
+val_split: 0.1
+seed: 42
+# no resampling
+transform:
+  NiftiToTensor:
+  PermuteDimensions: [2, 0, 1]
+  PadChannels: 88
+  Resize: 256
+  CenterCrop: 224
+train_loader:
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+val_loader:
+    num_workers: 4
+    batch_size: 8
+test_loader:
+    num_workers: 4
+    batch_size: 8
 
   # do resampling to 1x1x1
   #transform:
