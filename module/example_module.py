@@ -1,6 +1,7 @@
 import torch
 import pytorch_lightning as pl
-from torch.utils.data import DataLoader
+from torch.nn.functional import l1_loss, mse_loss
+from torchmetrics.functional.classification import auroc, accuracy, precision, recall, f1_score
 # local import
 import module.models as models
 
@@ -12,9 +13,6 @@ class ExampleModule(pl.LightningModule):
                  optimizer: str,
                  optimizer_params: dict,
                  criterion: str,
-                 train_loader: DataLoader,
-                 val_loader: DataLoader,
-                 test_loader: DataLoader,
                  lr_scheduler: str = None,
                  lr_scheduler_params: dict = None,
                  lr_scheduler_other_params: dict = None):
@@ -41,11 +39,6 @@ class ExampleModule(pl.LightningModule):
                 **lr_scheduler_other_params,  # monitor, interval, frequency, etc.
             }
 
-        # DataLoader settings
-        self.train_loader = train_loader
-        self.val_loader = val_loader
-        self.test_loader = test_loader
-
     def configure_optimizers(self):
         """
         set optimizer and lr_scheduler(optional)
@@ -55,26 +48,23 @@ class ExampleModule(pl.LightningModule):
         else:
             return self.optimizer
 
-    def train_dataloader(self):
-        return self.train_loader
-
-    def val_dataloader(self):
-        return self.val_loader
-
-    def test_dataloader(self):
-        return self.test_loader
-
     def forward(self, x):
         return self.model(x)
 
     def _step(self, batch):
         x, y = batch
-        y_hat = self.model(x).reshape(-1)
+        y_hat = self.model(x)
+
+        if len(y_hat.shape) == 2:
+            if y_hat.shape[1] == 1:  # Regression task
+                y_hat = y_hat.reshape(-1)  # Flatten the output
+
         loss = self.criterion(y_hat, y)
         return loss
 
     def training_step(self, batch, batch_idx):
         loss = self._step(batch)
+        self.log("train_loss", loss)  # train_loss is the key for callback
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -83,5 +73,50 @@ class ExampleModule(pl.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        loss = self._step(batch)
-        return loss
+        x, y = batch
+        y_hat = self(x)
+
+        if len(y_hat.shape) == 2:
+            if y_hat.shape[1] == 1:
+                # Regression task
+                self.log_dict(self._regression_metrics(y_hat, y, "test"))
+            elif y_hat.shape[1] == 2:
+                # Binary classification task
+                self.log_dict(self._binary_classification_metrics(y_hat, y, "test"))
+                self.logger.experiment.add_pr_curve("test_pr_curve", y, y_hat[:, 1], global_step=self.global_step)
+            elif y_hat.shape[1] > 2:
+                # Multi-class classification task
+                self.log_dict(self._multiclass_classification_metrics(y_hat, y, "test"))
+            else:
+                raise ValueError("Invalid shape for y_hat.")
+
+    @staticmethod
+    def _regression_metrics(y_hat, y, stage):
+        return {
+            f"{stage}/mae": l1_loss(y_hat.reshape(-1), y),
+            f"{stage}/rmse": mse_loss(y_hat.reshape(-1), y).sqrt()
+        }
+
+    @staticmethod
+    def _binary_classification_metrics(y_hat, y, stage):
+        pred = torch.argmax(y_hat, dim=1)  # Get class predictions
+        probs = y_hat[:, 1]  # Get probabilities for the positive class
+        return {
+            f"{stage}/accuracy": accuracy(pred, y, task="binary"),
+            f"{stage}/precision": precision(pred, y, task="binary"),
+            f"{stage}/recall": recall(pred, y, task="binary"),
+            f"{stage}/f1": f1_score(pred, y, task="binary"),
+            f"{stage}/auc": auroc(probs, y, task="binary")
+        }
+
+    @staticmethod
+    def _multiclass_classification_metrics(y_hat, y, stage):
+        pred = torch.argmax(y_hat, dim=1)  # Get class predictions
+        num_classes = y_hat.shape[1]
+        return {
+            f"{stage}/accuracy": accuracy(pred, y, average='macro', num_classes=num_classes, task="multiclass"),
+            f"{stage}/precision": precision(pred, y, average='macro', num_classes=num_classes, task="multiclass"),
+            f"{stage}/recall": recall(pred, y, average='macro', num_classes=num_classes, task="multiclass"),
+            f"{stage}/f1": f1_score(pred, y, average='macro', num_classes=num_classes, task="multiclass"),
+            f"{stage}/auc": auroc(y_hat, y, average='macro', num_classes=num_classes, task="multiclass")
+        }
