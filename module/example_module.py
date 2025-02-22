@@ -3,7 +3,7 @@ import pytorch_lightning as pl
 from torch.nn.functional import l1_loss, mse_loss
 from torchmetrics.functional.classification import auroc, accuracy, precision, recall, f1_score
 # local import
-import module.models as models
+import models as models
 
 
 class ExampleModule(pl.LightningModule):
