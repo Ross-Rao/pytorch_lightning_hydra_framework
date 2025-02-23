@@ -23,6 +23,12 @@ logger = logging.getLogger(__name__)
     config_name="config",
 )
 def main(cfg: DictConfig):
+    """
+    Main function to run the training and testing pipeline using Hydra for configuration management.
+
+    Args:
+        cfg (DictConfig): Configuration dictionary provided by Hydra.
+    """
     # print the config
     script = os.path.basename(sys.argv[0])
     script_name = os.path.splitext(script)[0]
@@ -67,7 +73,7 @@ def main(cfg: DictConfig):
                           criterion=cfg.get("criterion"))
     logger.info("model built.")
 
-    # train model
+    # train & test model
     trainer.fit(model, datamodule)
     logger.info("training finished.")
     result = trainer.test(model, datamodule)

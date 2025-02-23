@@ -16,6 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 class ExampleDataModule(pl.LightningDataModule):
+    """
+    ExampleDataModule is a PyTorch Lightning DataModule for handling data loading and preprocessing.
+    It supports custom transformations, data splitting, and saving/loading preprocessed data.
+    """
     def __init__(self, data_dir: str,
                  train_loader: dict,
                  val_loader: dict,
@@ -88,6 +92,18 @@ class ExampleDataModule(pl.LightningDataModule):
         }
 
     def prepare_data(self):
+        """
+        Prepares the data for training, validation, and testing.
+        If preprocessed data already exists, it uses that data.
+        Otherwise, it preprocesses the raw data, splits it into train/val/test sets, and saves the processed data.
+
+        Steps:
+        1. Check if preprocessed data exists.
+        2. If not, preprocess the raw data.
+        3. Save metadata.
+        4. Split data into train/val/test sets.
+        5. Save the processed data for each split.
+        """
         if all([os.path.exists(os.path.join(self.processed_data_save_dir, file))
                 for file in self.processed_data_save_name_dict.values()]):
             logger.info("using processed data.")
