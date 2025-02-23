@@ -100,7 +100,7 @@ class ExampleModule(pl.LightningModule):
     @staticmethod
     def _binary_classification_metrics(y_hat, y, stage):
         pred = torch.argmax(y_hat, dim=1)  # Get class predictions
-        probs = y_hat[:, 1]  # Get probabilities for the positive class
+        probs = torch.sigmoid(y_hat[:, 1])  # Get probabilities for the positive class
         return {
             f"{stage}/accuracy": accuracy(pred, y, task="binary"),
             f"{stage}/precision": precision(pred, y, task="binary"),
@@ -112,11 +112,12 @@ class ExampleModule(pl.LightningModule):
     @staticmethod
     def _multiclass_classification_metrics(y_hat, y, stage):
         pred = torch.argmax(y_hat, dim=1)  # Get class predictions
+        probs = torch.softmax(y_hat, dim=1)
         num_classes = y_hat.shape[1]
         return {
             f"{stage}/accuracy": accuracy(pred, y, average='macro', num_classes=num_classes, task="multiclass"),
             f"{stage}/precision": precision(pred, y, average='macro', num_classes=num_classes, task="multiclass"),
             f"{stage}/recall": recall(pred, y, average='macro', num_classes=num_classes, task="multiclass"),
             f"{stage}/f1": f1_score(pred, y, average='macro', num_classes=num_classes, task="multiclass"),
-            f"{stage}/auc": auroc(y_hat, y, average='macro', num_classes=num_classes, task="multiclass")
+            f"{stage}/auc": auroc(probs, y, average='macro', num_classes=num_classes, task="multiclass")
         }
