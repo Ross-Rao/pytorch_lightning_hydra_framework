@@ -10,7 +10,6 @@ seed: 42
 # no resampling
 transform:
   NiftiToTensor:
-  PermuteDimensions: [2, 0, 1]
   PadChannels: 88
   Resize: 256
   CenterCrop: 224

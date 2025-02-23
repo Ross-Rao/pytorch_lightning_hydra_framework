@@ -1,5 +1,5 @@
 import logging
-import nibabel as nib
+import SimpleITK as sitk
 import torch
 import torch.nn.functional as F
 from torchvision import transforms
@@ -13,37 +13,29 @@ class ResampleNifti:
     Resample the input Nifti1Image to the same resolution as the original image.
 
     Args:
-        img (Nifti1Image): Input Nifti1Image instance.
+        img (sitk.Image): Input sitk.Image instance.
 
     Example:
         >>> transform_pipeline = transforms.Compose([ResampleNifti(),])
         >>> nifti_path = "/home/user2/data/HCC-WCH/old/3-1.nii.gz"
-        >>> nifti_img = nib.load(nifti_path)
+        >>> nifti_img = sitk.ReadImage(nifti_path, sitk.sitkFloat32)
         >>> resampled_tensor = transform_pipeline(nifti_img)
         >>> print("Shape of Tensor After resample:", resampled_tensor.shape)
         Shape of Tensor After resample: torch.Size([415, 259, 202])
     """
     def __call__(self, img):
-        """
-        Accepts Nifti1Image instance input and returns the resampled Tensor.
-        """
-        # If the input is a string, assume it is a file path
-        if isinstance(img, nib.Nifti1Image):
-            img_data = img.get_fdata()
-            header = img.header
-        else:
-            raise TypeError("Input must be a Nifti1Image object.")
 
-        pixdim = header.get('pixdim')
-        new_width = round(img_data.shape[0] * pixdim[1])
-        new_height = round(img_data.shape[1] * pixdim[2])
-        new_depth = round(img_data.shape[2] * pixdim[3])
+        original_spacing = img.GetSpacing()
+        original_size = img.GetSize()
+        img_data = sitk.GetArrayFromImage(img)
+
+        new_size = [int(round(osz * ospc / nspc)) for osz, ospc, nspc in
+                    zip(original_size, original_spacing, (1.0, 1.0, 1.0))]
 
         # Convert to Tensor and perform resampling
         img_tensor = torch.tensor(img_data).unsqueeze(0).unsqueeze(0)  # Add batch and channel dimensions
-        resampled_tensor = F.interpolate(img_tensor, size=(new_width, new_height, new_depth),
+        resampled_tensor = F.interpolate(img_tensor, size=new_size,
                                          mode='trilinear', align_corners=False).squeeze()
-
         return resampled_tensor
 
 
@@ -149,9 +141,9 @@ class PadChannels:
 
 class NiftiToTensor:
     """
-    A transform to convert a NIfTI image (nib.Nifti1Image) to a PyTorch Tensor.
+    A transform to convert a NIfTI image (sitk.Image) to a PyTorch Tensor.
 
-    This transform assumes the input is a nib.Nifti1Image object. It extracts the image data
+    This transform assumes the input is a sitk.Image object. It extracts the image data
     and converts it to a PyTorch Tensor with a specified data type. Optionally, it can normalize
     the data to the range [0, 1] by shifting and scaling the data.
 
@@ -160,11 +152,12 @@ class NiftiToTensor:
         normalize (bool): Whether to normalize the data to the range [0, 1] (default: False).
 
     Example:
-        >>> nifti_image = nib.load("path_to_your_image.nii.gz")
+        >>> nifti_path = "/home/user2/data/HCC-WCH/old/3-1.nii.gz"
+        >>> nifti_image = sitk.ReadImage(nifti_path)
         >>> to_tensor = NiftiToTensor(dtype=torch.float64)
         >>> tensor_data = to_tensor(nifti_image)
         >>> print(tensor_data.shape)
-        torch.Size([x, y, z])
+        torch.Size([72, 220, 352])
         >>> print(tensor_data.dtype)
         torch.float64
     """
@@ -174,10 +167,10 @@ class NiftiToTensor:
         self.normalize = normalize
 
     def __call__(self, nifti_image):
-        if not isinstance(nifti_image, nib.Nifti1Image):
-            raise TypeError("Input must be a nib.Nifti1Image object.")
+        if not isinstance(nifti_image, sitk.Image):
+            raise TypeError("Input must be a SimpleITK Image object.")
 
-        tensor_data = torch.tensor(nifti_image.get_fdata(), dtype=self.dtype)
+        tensor_data = torch.tensor(sitk.GetArrayFromImage(nifti_image), dtype=self.dtype)
 
         # Normalize data to [0, 1] if required
         if self.normalize:
