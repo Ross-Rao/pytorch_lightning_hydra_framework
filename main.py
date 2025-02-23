@@ -58,8 +58,8 @@ def main(cfg: DictConfig):
     logger.info("trainer built.")
 
     # build data Module
-    datamodule = ExampleDataModule(**cfg.get("dataset"),
-                                   is_valid_label=lambda path: int(os.path.basename(path).split('.')[0].rsplit('-', 1)[-1]))
+    cfg['dataset']['is_valid_label'] = eval(cfg.get("dataset")['is_valid_label'])  # str to lambda function
+    datamodule = ExampleDataModule(**cfg.get("dataset"))
     logger.info("dataloader built.")
 
     # build model
