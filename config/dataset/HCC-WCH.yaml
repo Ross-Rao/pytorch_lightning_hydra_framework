@@ -2,7 +2,7 @@
 
 
 data_dir: '${oc.env:DATASET_LOCATION, ./data}/HCC-WCH'
-is_valid_file: '.nii.gz'
+is_valid_file: "lambda path: path.endswith('.nii.gz')"
 is_valid_label: "lambda path: float(os.path.basename(path).split('.')[0].rsplit('-', 1)[-1])"
 test_split: 0.2
 val_split: 0.1

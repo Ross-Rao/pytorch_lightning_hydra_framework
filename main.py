@@ -64,7 +64,8 @@ def main(cfg: DictConfig):
     logger.info("trainer built.")
 
     # build data Module
-    cfg['dataset']['is_valid_label'] = eval(cfg.get("dataset")['is_valid_label'])  # str to lambda function
+    cfg['dataset']['is_valid_label'] = eval(cfg.get("dataset")['is_valid_label'])
+    cfg['dataset']['is_valid_file'] = eval(cfg.get("dataset")['is_valid_file'])  # str to lambda function
     datamodule = ExampleDataModule(**cfg.get("dataset"))
     logger.info("dataloader built.")
 

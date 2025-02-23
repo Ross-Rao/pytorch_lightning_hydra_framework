@@ -25,7 +25,7 @@ class ExampleDataModule(pl.LightningDataModule):
                  val_loader: dict,
                  test_loader: dict,
                  is_valid_label: Callable[[str], Union[str, int, float]],
-                 is_valid_file: Union[str, Callable[[str], bool]] = None,
+                 is_valid_file: Callable[[str], bool] = None,
                  processed_data_save_dir: str = 'preprocessed',
                  processed_data_save_name_dict: dict = None,
                  val_split: float = 0.1,
@@ -114,12 +114,8 @@ class ExampleDataModule(pl.LightningDataModule):
 
         # first prepare input data
         input_paths = [os.path.join(root, file) for root, _, files in os.walk(self.data_dir) for file in files]
-        if callable(self.is_valid_file):
+        if self.is_valid_file is not None:
             input_paths = [file for file in input_paths if self.is_valid_file(file)]
-        elif isinstance(self.is_valid_file, str):
-            input_paths = [file for file in input_paths if file.endswith(self.is_valid_file)]
-        else:
-            raise ValueError("is_valid_file must be either a string or a callable.")
 
         # then prepare labels
         labels = [self.is_valid_label(file) for file in input_paths]
