@@ -1,9 +1,10 @@
 import os
+from multiprocessing import Pool, cpu_count
+from functools import partial
 import SimpleITK as sitk
 import pandas as pd
 import numpy as np
 from skimage import measure
-import matplotlib.pyplot as plt
 from radiomics import featureextractor
 # local import
 from utils.logger import Logger
@@ -68,10 +69,25 @@ def img2mask(img: sitk.Image, threshold: int, ) -> sitk.Image:
     return mask_image
 
 
+def extract_features(file_path: str, extractor, threshold: int) -> pd.DataFrame:
+    """
+    Extract radiomics features for a single image and mask.
+    """
+    try:
+        image = sitk.ReadImage(file_path)
+        mask = img2mask(image, threshold)
+        features = extractor.execute(image, mask)
+        features['image_path'] = file_path  # Add image path as identifier
+        logger.info(f"extract features for {file_path}")
+        return pd.DataFrame([features])  # Convert features to DataFrame
+    except Exception as e:
+        logger.error(f"Failed to extract features for {file_path}: {e}")
+        raise e
+
+
 if __name__ == "__main__":
     metadata_path = "/home/user2/data/HCC-WCH/preprocessed/metadata.csv"
     statistic_save_path = "/home/user2/data/HCC-WCH/preprocessed/statistic.csv"
-    features_save_path = "/home/user2/data/HCC-WCH/preprocessed/radiomics_features.csv"
 
     if not os.path.exists(statistic_save_path):
         metadata = pd.read_csv(metadata_path)
@@ -115,29 +131,26 @@ if __name__ == "__main__":
     }
 
     extractor = featureextractor.RadiomicsFeatureExtractor(**settings)
-    extractor.enableImageTypeByName('LoG')
-    extractor.enableImageTypeByName('Wavelet')
+    image_types = ['Original']
+    for t in image_types:
+        extractor.enableImageTypeByName(t)
+
+    features_save_path = f"/home/user2/data/HCC-WCH/preprocessed/{image_types}_radiomics_features.csv"
 
     logger.info(extractor.settings)
     logger.info(extractor.enabledFeatures)
 
-    features_list = []
-    for index, row in metadata.iterrows():
-        file_path = row['input']
-        image = sitk.ReadImage(file_path)
+    # Prepare arguments for multiprocessing
+    file_paths = metadata['input'].tolist()
+    partial_extract_features = partial(extract_features, extractor=extractor, threshold=15)
 
-        mask = img2mask(image, threshold=15)
+    # Use multiprocessing to extract features in parallel
+    with Pool(processes=cpu_count()) as pool:
+        results = pool.map(partial_extract_features, file_paths)
 
-        # 提取特征
-        try:
-            features = extractor.execute(image, mask)
-            features['image_path'] = file_path  # 添加图像路径作为标识
-            features_list.append(features)
-            logger.info(f"Features extracted for {file_path}")
-        except Exception as e:
-            logger.error(f"Failed to extract features for {file_path}: {e}")
+    # Combine all DataFrames into one
+    features_df = pd.concat(results, ignore_index=True)
 
-    # 将特征保存到 CSV 文件
-    features_df = pd.DataFrame(features_list)
+    # Save features to CSV file
     features_df.to_csv(features_save_path, index=False)
     logger.info(f"Radiomics features saved to {features_save_path}")
