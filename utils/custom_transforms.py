@@ -186,3 +186,14 @@ class NiftiToTensor:
 
     def __repr__(self):
         return f"{self.__class__.__name__}(dtype={self.dtype})"
+
+
+class ToTensorWithoutNormalization:
+    def __init__(self, dtype=torch.float32):
+        self.dtype = dtype
+
+    def __call__(self, img):
+        return torch.tensor(img, dtype=self.dtype)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(dtype={self.dtype})"
