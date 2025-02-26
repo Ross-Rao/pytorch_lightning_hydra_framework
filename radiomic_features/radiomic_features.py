@@ -1,15 +1,21 @@
+# python import
 import os
-from multiprocessing import Pool, cpu_count
+import logging
+from multiprocessing import Pool
+from multiprocessing import Process, Queue
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
+# package import
 import SimpleITK as sitk
 import pandas as pd
 import numpy as np
 from skimage import measure
 from radiomics import featureextractor
 # local import
-from utils.logger import Logger
 
-logger = Logger().logger
+
+logger = logging.getLogger(__name__)
+__all__ = ['img2mask']
 
 
 def img2mask(img: sitk.Image, threshold: int, ) -> sitk.Image:
@@ -69,16 +75,19 @@ def img2mask(img: sitk.Image, threshold: int, ) -> sitk.Image:
     return mask_image
 
 
-def extract_features(file_path: str, extractor, threshold: int) -> pd.DataFrame:
+def extract_features(file_path: str, settings: dict, image_types: list, threshold: int) -> pd.DataFrame:
     """
     Extract radiomics features for a single image and mask.
     """
+    extractor = featureextractor.RadiomicsFeatureExtractor(**settings)
+    for t in image_types:
+        extractor.enableImageTypeByName(t)
     try:
+        logger.info(f"{file_path} start to extract features")
         image = sitk.ReadImage(file_path)
         mask = img2mask(image, threshold)
         features = extractor.execute(image, mask)
         features['image_path'] = file_path  # Add image path as identifier
-        logger.info(f"extract features for {file_path}")
         return pd.DataFrame([features])  # Convert features to DataFrame
     except Exception as e:
         logger.error(f"Failed to extract features for {file_path}: {e}")
@@ -87,65 +96,27 @@ def extract_features(file_path: str, extractor, threshold: int) -> pd.DataFrame:
 
 if __name__ == "__main__":
     metadata_path = "/home/user2/data/HCC-WCH/preprocessed/metadata.csv"
-    statistic_save_path = "/home/user2/data/HCC-WCH/preprocessed/statistic.csv"
-
-    if not os.path.exists(statistic_save_path):
-        metadata = pd.read_csv(metadata_path)
-        metadata['image_size'] = None
-        metadata['voxel_spacing'] = None
-        metadata['intensity_min'] = None
-        metadata['intensity_max'] = None
-        metadata['intensity_mean'] = None
-        metadata['intensity_std'] = None
-
-        for index, row in metadata.iterrows():
-            file_path = row['input']
-            image = sitk.ReadImage(file_path)
-            image_array = sitk.GetArrayFromImage(image)
-
-            metadata.at[index, 'image_size'] = str(image.GetSize())
-            metadata.at[index, 'voxel_spacing'] = str(image.GetSpacing())
-            metadata.at[index, 'intensity_min'] = image_array.min()
-            metadata.at[index, 'intensity_max'] = image_array.max()
-            metadata.at[index, 'intensity_mean'] = image_array.mean()
-            metadata.at[index, 'intensity_std'] = image_array.std()
-
-        metadata.to_csv(statistic_save_path, index=False)
-        logger.info("statistic.csv saved")
-    else:
-        metadata = pd.read_csv(statistic_save_path)
-
-    global_min = metadata['intensity_min'].min()
-    global_max = metadata['intensity_max'].max()
-
-    logger.info(f"Global Minimum Intensity: {global_min}")
-    logger.info(f"Global Maximum Intensity: {global_max}")
+    metadata = pd.read_csv(metadata_path)
 
     settings = {
-        'binWidth': 50,  # defined by intensity range of the image
+        'binWidth': 10,  # defined by intensity range of the image or normalizedScale.
         'sigma': [3, 5],
         'resampledPixelSpacing': [1, 1, 1],
         'voxelArrayShift': 0,  # whether to shift the image to > 0
         'normalize': True,
-        'normalizeScale': 100,
+        'normalizeScale': 1,
     }
 
-    extractor = featureextractor.RadiomicsFeatureExtractor(**settings)
-    image_types = ['Original']
-    for t in image_types:
-        extractor.enableImageTypeByName(t)
-
+    # image_types = ['Original']
+    image_types = ['LoG', 'Wavelet']
     features_save_path = f"/home/user2/data/HCC-WCH/preprocessed/{image_types}_radiomics_features.csv"
-
-    logger.info(extractor.settings)
-    logger.info(extractor.enabledFeatures)
 
     # Prepare arguments for multiprocessing
     file_paths = metadata['input'].tolist()
-    partial_extract_features = partial(extract_features, extractor=extractor, threshold=15)
+    partial_extract_features = partial(extract_features, settings=settings, image_types=image_types, threshold=15)
 
     # Use multiprocessing to extract features in parallel
-    with Pool(processes=cpu_count()) as pool:
+    with Pool(processes=os.cpu_count()) as pool:
         results = pool.map(partial_extract_features, file_paths)
 
     # Combine all DataFrames into one
