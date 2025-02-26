@@ -9,7 +9,7 @@ from torchvision import transforms
 from sklearn.model_selection import train_test_split
 # local import
 from utils.file_io import loader
-from utils import transforms as custom_transforms
+from utils import custom_transforms as custom_transforms
 from utils.util import get_multi_attr
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ class ExampleDataModule(pl.LightningDataModule):
         if transform is None:
             self.transform = transforms.Compose([transforms.ToTensor()])
         else:
-            # if you want to use your own transform, you can add them to utils/transforms.py
+            # if you want to use your own transform, you can add them to utils/custom_transforms.py
             # they will be imported by get_multi_attr
             transforms_lt = get_multi_attr([custom_transforms, transforms], transform)
             self.transform = transforms.Compose(transforms_lt)

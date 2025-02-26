@@ -65,6 +65,10 @@ class Logger:
         self.logger.info("----------------------------------------")
 
 
+logger = Logger().logger
+__all__ = ['logger']
+
+
 if __name__ == "__main__":
     from multiprocessing import Process
 

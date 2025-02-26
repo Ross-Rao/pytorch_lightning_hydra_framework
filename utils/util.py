@@ -9,7 +9,7 @@ def get_multi_attr(modules: list, attr: dict):
         list: List of results from the attributes.
 
     Example:
-        >>> from utils import transforms as custom_transforms
+        >>> from utils import custom_transforms as custom_transforms
         >>> from torchvision import transforms
         >>> transform = {"ResampleNifti": None, "PermuteDimensions": (2, 0, 1), "PadChannels": 220,
         >>>              "Resize": {"size": 256}, "RandomCrop": {"size": 224}, }
