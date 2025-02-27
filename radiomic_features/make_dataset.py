@@ -33,7 +33,7 @@ def get_grouped_columns(df: pd.DataFrame, col_fields: list):
 
 
 def get_raw_dataset(metadata_path: str, features_path: str):
-    features = pd.read_csv(features_path).rename(columns={'image_path': 'path'})
+    features = pd.read_csv(features_path)
     metadata = pd.read_csv(metadata_path)
     df = pd.merge(features, metadata, on='path', validate='1:1')
 
@@ -56,7 +56,7 @@ def split_dataset(df: pd.DataFrame, test_size: float = 0.2, seed: int = 42):
 if __name__ == "__main__":
     # image_types = ['Original']
     image_types = ['LoG', 'Wavelet']
-    features_save_path = f"/home/user2/data/HCC-WCH/preprocessed/{image_types}_radiomics_features.csv"
+    features_save_path = f"./{image_types}_radiomics_features.csv"
     metadata_save_path = f"/home/user2/data/HCC-WCH/preprocessed/metadata.csv"
 
     features_df = get_raw_dataset(metadata_save_path, features_save_path)

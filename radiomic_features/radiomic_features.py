@@ -1,10 +1,7 @@
 # python import
 import os
-import logging
-from multiprocessing import Pool
-from multiprocessing import Process, Queue
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
+from multiprocessing import Pool
 # package import
 import SimpleITK as sitk
 import pandas as pd
@@ -12,9 +9,8 @@ import numpy as np
 from skimage import measure
 from radiomics import featureextractor
 # local import
+from utils import logger
 
-
-logger = logging.getLogger(__name__)
 __all__ = ['img2mask']
 
 
@@ -75,23 +71,19 @@ def img2mask(img: sitk.Image, threshold: int, ) -> sitk.Image:
     return mask_image
 
 
-def extract_features(file_path: str, settings: dict, image_types: list, threshold: int) -> pd.DataFrame:
+def extract_features(file_path: str, settings: dict, image_types: list, threshold: int, logger) -> pd.DataFrame:
     """
     Extract radiomics features for a single image and mask.
     """
     extractor = featureextractor.RadiomicsFeatureExtractor(**settings)
     for t in image_types:
         extractor.enableImageTypeByName(t)
-    try:
-        logger.info(f"{file_path} start to extract features")
-        image = sitk.ReadImage(file_path)
-        mask = img2mask(image, threshold)
-        features = extractor.execute(image, mask)
-        features['image_path'] = file_path  # Add image path as identifier
-        return pd.DataFrame([features])  # Convert features to DataFrame
-    except Exception as e:
-        logger.error(f"Failed to extract features for {file_path}: {e}")
-        raise e
+    logger.info(f"{file_path} start to extract features")
+    image = sitk.ReadImage(file_path)
+    mask = img2mask(image, threshold)
+    features = extractor.execute(image, mask)
+    features['path'] = file_path  # Add image path as identifier
+    return pd.DataFrame([features])  # Convert features to DataFrame
 
 
 if __name__ == "__main__":
@@ -104,16 +96,17 @@ if __name__ == "__main__":
         'resampledPixelSpacing': [1, 1, 1],
         'voxelArrayShift': 0,  # whether to shift the image to > 0
         'normalize': True,
-        'normalizeScale': 1,
+        'normalizeScale': 100,
     }
 
     # image_types = ['Original']
     image_types = ['LoG', 'Wavelet']
-    features_save_path = f"/home/user2/data/HCC-WCH/preprocessed/{image_types}_radiomics_features.csv"
+    features_save_path = f"./{image_types}_radiomics_features.csv"
 
     # Prepare arguments for multiprocessing
-    file_paths = metadata['input'].tolist()
-    partial_extract_features = partial(extract_features, settings=settings, image_types=image_types, threshold=15)
+    file_paths = metadata['path'].tolist()
+    partial_extract_features = partial(extract_features, settings=settings,
+                                       image_types=image_types, threshold=15, logger=logger)
 
     # Use multiprocessing to extract features in parallel
     with Pool(processes=os.cpu_count()) as pool:
