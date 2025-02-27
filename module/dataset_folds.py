@@ -1,7 +1,6 @@
 # python import
 import os
 import logging
-from typing import Callable, Any
 from functools import partial
 # package import
 import torch
