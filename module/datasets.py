@@ -31,7 +31,8 @@ class RawDataset(Dataset):
 
     def __init__(self, data_dir: str,
                  is_valid_file: Callable[[str], bool] = None,
-                 is_valid_label: Callable[[str], Any] = None):
+                 is_valid_label: Callable[[str], Any] = None,
+                 grouped_attribute: Callable[[str], str] = None):
         """
         Initializes the RawDataset.
 
@@ -40,6 +41,7 @@ class RawDataset(Dataset):
             is_valid_file (Callable[[str], bool], optional): Function to validate file paths. Defaults to None.
             is_valid_label (Callable[[str], Any], optional): Function to extract labels from file paths.
                 Defaults to None.
+        grouped_attribute (Callable[[str], str], optional): Function to group the data. Defaults to None.
         """
         self.input_paths = []
         self.labels = []
@@ -53,7 +55,15 @@ class RawDataset(Dataset):
                 if is_valid_label is not None:
                     self.labels.append(is_valid_label(input_path))
 
-        assert len(self.input_paths) > 0, f"No valid files found in {data_dir}"
+        assert len(self.input_paths) > 0, f"No valid files found in {data_dir}, please check the path or the function"
+
+        if grouped_attribute is not None:
+            dt = {'path': self.input_paths, 'label': self.labels} if is_valid_label else {'path': self.input_paths}
+            df = pd.DataFrame(dt).sort_values(by=['path']).reset_index()
+            df['group'] = df['path'].apply(grouped_attribute)
+            grouped = df.groupby("group").agg({"path": list, "label": list}).reset_index()
+            self.input_paths = grouped['path'].tolist()
+            self.labels = grouped['label'].tolist()
 
     def __len__(self):
         return len(self.input_paths)
@@ -117,12 +127,19 @@ class LoadedDataset(Dataset):
         sample = self.dataset[idx]
         if isinstance(sample, tuple):
             inputs, targets = sample
-            inputs = self.transform(loader(inputs))
-            targets = self.target_transform(targets)
+            if isinstance(inputs, str):
+                inputs = [inputs]
+            inputs = [self.transform(loader(path_input)) for path_input in inputs]
+            if isinstance(targets, str):
+                targets = [targets]
+            targets = [self.target_transform(target) for target in targets]
             return inputs, targets
         else:
             inputs = sample
-            return self.transform(loader(inputs))
+            if isinstance(inputs, str):
+                inputs = [inputs]
+            inputs = [self.transform(loader(path_input)) for path_input in inputs]
+            return inputs
 
     def save2pt(self, path: str):
         data = [self[i] for i in range(len(self.dataset))]
@@ -130,10 +147,10 @@ class LoadedDataset(Dataset):
         try:
             if isinstance(data[0], tuple):
                 inputs, targets = zip(*data)
-                torch.save([torch.stack(inputs), torch.stack(targets)], path)
+                torch.save([inputs, targets], path)
             else:
                 inputs = data
-                torch.save([torch.stack(inputs)], path)
+                torch.save([inputs], path)
         except Exception as e:
             logger.error(f"Error saving data to {path}:")
             logger.error(e)
