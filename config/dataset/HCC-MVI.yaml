@@ -11,6 +11,7 @@ fold: 0
 seed: 42
 # no resampling
 transform:
+  ToTensor:
   Resize: 256
   CenterCrop: 224
 train_loader:
