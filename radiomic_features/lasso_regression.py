@@ -7,7 +7,7 @@ from sklearn.linear_model import Lasso, LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 # local import
-from utils import logger
+from logger import logger
 from make_dataset import get_raw_dataset, split_dataset
 
 

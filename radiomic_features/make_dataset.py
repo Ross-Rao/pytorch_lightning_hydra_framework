@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 # local import
-from utils import logger
+from logger import logger
 
 
 def get_grouped_columns(df: pd.DataFrame, col_fields: list):

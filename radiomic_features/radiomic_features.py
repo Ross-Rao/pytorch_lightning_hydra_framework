@@ -9,7 +9,7 @@ import numpy as np
 from skimage import measure
 from radiomics import featureextractor
 # local import
-from utils import logger
+from logger import logger
 
 __all__ = ['img2mask']
 
