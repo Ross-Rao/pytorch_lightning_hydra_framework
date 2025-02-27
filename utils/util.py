@@ -1,3 +1,8 @@
+
+
+__all__ = ["get_multi_attr"]
+
+
 def get_multi_attr(modules: list, attr: dict):
     """Get multiple attributes from multiple modules.
 
