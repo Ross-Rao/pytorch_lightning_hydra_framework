@@ -20,6 +20,7 @@ class LoadedDataModule(pl.LightningDataModule):
                  val_loader: dict,
                  test_loader: dict,
                  use_preprocessed: bool = True,
+                 grouped_attribute: Callable[[str], str] = None,
                  is_valid_file: Callable[[str], bool] = None,
                  is_valid_label: Callable[[str], Any] = None,
                  n_folds: int = 5,
@@ -41,6 +42,7 @@ class LoadedDataModule(pl.LightningDataModule):
         self.target_transform = target_transform
         self.is_valid_file = is_valid_file
         self.is_valid_label = is_valid_label
+        self.grouped_attribute = grouped_attribute
         self.use_preprocessed = use_preprocessed
         self.preprocessed_data_save_dir = processed_data_save_dir
 
@@ -52,7 +54,8 @@ class LoadedDataModule(pl.LightningDataModule):
         # dataset folds
         self.raw_dataset = RawDataset(data_dir=self.data_dir,
                                       is_valid_file=self.is_valid_file,
-                                      is_valid_label=self.is_valid_label)
+                                      is_valid_label=self.is_valid_label,
+                                      grouped_attribute=self.grouped_attribute)
         self.split_dataset = SplitDatasetFolds(raw_dataset=self.raw_dataset,
                                                n_folds=self.n_folds,
                                                test_split_radio=self.test_split_radio,
