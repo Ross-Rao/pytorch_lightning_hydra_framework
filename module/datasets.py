@@ -127,18 +127,25 @@ class LoadedDataset(Dataset):
         sample = self.dataset[idx]
         if isinstance(sample, tuple):
             inputs, targets = sample
-            if isinstance(inputs, str):
-                inputs = [inputs]
-            inputs = [self.transform(loader(path_input)) for path_input in inputs]
-            if isinstance(targets, str):
-                targets = [targets]
-            targets = [self.target_transform(target) for target in targets]
+            if not isinstance(inputs, list):
+                inputs = self.transform(loader(inputs))
+            else:
+                inputs = [self.transform(loader(path_input)) for path_input in inputs]
+                inputs = torch.stack(inputs)
+
+            if not isinstance(targets, list):
+                targets = self.target_transform(targets)
+            else:
+                targets = [self.target_transform(target) for target in targets]
+                targets = torch.stack(targets)
             return inputs, targets
         else:
             inputs = sample
-            if isinstance(inputs, str):
-                inputs = [inputs]
-            inputs = [self.transform(loader(path_input)) for path_input in inputs]
+            if not isinstance(inputs, list):
+                inputs = self.transform(loader(inputs))
+            else:
+                inputs = [self.transform(loader(path_input)) for path_input in inputs]
+                inputs = torch.stack(inputs)
             return inputs
 
     def save2pt(self, path: str):
@@ -147,10 +154,10 @@ class LoadedDataset(Dataset):
         try:
             if isinstance(data[0], tuple):
                 inputs, targets = zip(*data)
-                torch.save([inputs, targets], path)
+                torch.save([torch.stack(inputs), torch.stack(targets)], path)
             else:
                 inputs = data
-                torch.save([inputs], path)
+                torch.save([torch.stack(inputs)], path)
         except Exception as e:
             logger.error(f"Error saving data to {path}:")
             logger.error(e)

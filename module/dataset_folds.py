@@ -111,16 +111,14 @@ class LoadedDatasetFolds:
         >>> raw_dataset = RawDataset(hcc, is_valid_file=eval(is_valid_file), is_valid_label=eval(is_valid_label))
         >>> split_dataset = SplitDatasetFolds(raw_dataset, 5, 0.2)
         >>> trans = dict(NiftiToTensor=None, PadChannels=88, Resize=256, RandomCrop=224)
-        >>> save_dir_name = "processed_data"
-        >>> save_name_dict = {'train': 'train_{0}.pt', 'val': 'val_{0}.pt', 'test': 'test.pt'}
-        >>> loaded_dataset = LoadedDatasetFolds(hcc, save_dir_name, save_name_dict, split_dataset, transform=trans)
+        >>> save_dir_name = "./processed_data"
+        >>> loaded_dataset = LoadedDatasetFolds(split_dataset, save_dir_name, transform=trans)
         >>> loaded_dataset.save2pts()
         >>> train_dataset, val_dataset, test_dataset = loaded_dataset.get_fold(0)
     """
-    def __init__(self, data_dir: str,
-                 processed_data_save_dir_name: str,
-                 processed_data_save_name_dict: dict,
-                 split_folds: SplitDatasetFolds,
+    def __init__(self, split_folds: SplitDatasetFolds,
+                 processed_data_save_dir: str,
+                 processed_data_save_name_dict: dict = None,
                  transform: dict = None,
                  target_transform: dict = None,
                  ):
@@ -129,10 +127,27 @@ class LoadedDatasetFolds:
 
         self.transform = transform
         self.target_transform = target_transform
-        self.processed_data_save_dir = os.path.join(data_dir, processed_data_save_dir_name)
-        assert {'train', 'val', 'test'} == set(processed_data_save_name_dict.keys()), \
-            "save_name_dict must have keys: train, val, test"
-        self.save_name_dict = processed_data_save_name_dict
+
+        # save name dict
+        self.processed_data_save_dir = processed_data_save_dir
+        if processed_data_save_name_dict is None:
+            self.save_name_dict = {
+                'train': 'train_{0}.pt',  # 0 is placeholder
+                'val': 'val_{0}.pt',
+                'test': 'test.pt',
+            }
+        else:
+            assert {'train', 'val', 'test'} == set(processed_data_save_name_dict.keys()), \
+                "save_name_dict must have keys: train, val, test"
+            self.save_name_dict = processed_data_save_name_dict
+
+    def check_integrity(self):
+        paths = [os.path.join(self.processed_data_save_dir, self.save_name_dict['test'])]
+        paths += [os.path.join(self.processed_data_save_dir, self.save_name_dict['train'].format(fold))
+                  for fold in range(len(self.split_datasets))]
+        paths += [os.path.join(self.processed_data_save_dir, self.save_name_dict['val'].format(fold))
+                  for fold in range(len(self.split_datasets))]
+        return all([os.path.exists(path) for path in paths])
 
     def save2pts(self):
         if not os.path.exists(self.processed_data_save_dir):
