@@ -1,11 +1,13 @@
 # python import
-
+import logging
 # package import
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 # local import
-from logger import logger
+
+logger = logging.getLogger(__name__)
+__all__ = ['get_raw_dataset', 'split_dataset']
 
 
 def get_grouped_columns(df: pd.DataFrame, col_fields: list):
@@ -51,17 +53,3 @@ def get_raw_dataset(metadata_path: str, features_path: str):
 def split_dataset(df: pd.DataFrame, test_size: float = 0.2, seed: int = 42):
     train_df, test_df = train_test_split(df, test_size=test_size, stratify=df['label'], random_state=seed)
     return train_df, test_df
-
-
-if __name__ == "__main__":
-    # image_types = ['Original']
-    image_types = ['LoG', 'Wavelet']
-    features_save_path = f"./{image_types}_radiomics_features.csv"
-    metadata_save_path = f"/home/user2/data/HCC-WCH/preprocessed/metadata.csv"
-
-    features_df = get_raw_dataset(metadata_save_path, features_save_path)
-    train, test = split_dataset(features_df)
-
-
-
-

@@ -1,4 +1,5 @@
 # python import
+import logging
 # package import
 import pandas as pd
 import statsmodels.api as sm
@@ -7,8 +8,10 @@ from sklearn.linear_model import Lasso, LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 # local import
-from logger import logger
-from make_dataset import get_raw_dataset, split_dataset
+
+
+logger = logging.getLogger(__name__)
+__all__ = ['logistic_regression', 'feature_selection']
 
 
 def logistic_regression(train_df, test_df, alpha=0.01, seed=42):
@@ -57,8 +60,8 @@ def logistic_regression(train_df, test_df, alpha=0.01, seed=42):
     logger.info(f"AUC: {auc:.4f}")
 
     # 8. 显著性检验（使用 Statsmodels Logit 模型）
-    X_new_train = sm.add_constant(new_feature_train)  # 添加截距项
-    logit_model = sm.Logit(y_train, X_new_train).fit(disp=0)
+    x_new_train = sm.add_constant(new_feature_train)  # 添加截距项
+    logit_model = sm.Logit(y_train, x_new_train).fit(disp=0)
     logger.info("Significance test for the new feature:")
     logger.info(logit_model.summary())
 
@@ -84,18 +87,3 @@ def feature_selection(train_df, threshold):
     selected_features = correlations[abs(correlations) > threshold].index
 
     return selected_features.to_series()
-
-
-if __name__ == '__main__':
-    # image_types = ['Original']
-    image_types = ['LoG', 'Wavelet']
-    features_save_path = f"./{image_types}_radiomics_features.csv"
-    metadata_save_path = f"/home/user2/data/HCC-WCH/preprocessed/metadata.csv"
-
-    features_df = get_raw_dataset(metadata_save_path, features_save_path)
-    train, test = split_dataset(features_df)
-
-    selected = feature_selection(train, 0.2)
-    logger.info(f"selected features:\n{selected.to_string()}")
-
-    logistic_regression(train[selected.tolist() + ['label']], test[selected.tolist() + ['label']])

@@ -1,0 +1,67 @@
+# config.yaml
+
+defaults:
+    # hydra settings
+    - hydra  # refer to `hydra.yaml`
+    # dataset settings
+    - dataset: HCC-WCH  # refer to `dataset/HCC-WCH.yaml`
+    - _self_  # 占位符：表示当前文件，在defaults的最后一行声明，可以保证当前文件的配置可覆盖之前的配置
+
+
+settings:
+    binWidth: 10  # defined by intensity range of the image or normalizedScale.
+    sigma: [3, 5]
+    resampledPixelSpacing: [1, 1, 1]
+    voxelArrayShift: 0
+    normalize: True
+    normalizeScale: 100
+image_types: ['LoG', 'Wavelet']
+threshold: 300
+
+# trainer settings
+#  contains the configuration for the pytorch_lightning.trainer.
+#callbacks:  # inline definition of callbacks, don't change the name
+#    # relevant input arguments in main.py
+#    ModelCheckpoint:
+#        filename: "model_{epoch:02d}_{val_loss:.2f}"
+#        monitor: "val_loss"  # log in module/example_module.py
+#        save_top_k: 3
+#        mode: "min"
+#        save_last: True
+#    EarlyStopping:
+#        monitor: 'val_loss'
+#        patience: 5
+#        mode: 'min'
+#    TQDMProgressBar:
+#        refresh_rate: 1
+#trainer:  # inline definition of trainer, don't change the name
+#    max_epochs: 400
+#    accelerator: 'gpu'
+#    devices: 1
+#    check_val_every_n_epoch: 1
+#    log_every_n_steps: 1
+
+# module settings: used in module/example_module.py
+#criterion: 'MSELoss'
+#optimizer:
+#    optimizer: SGD
+#    optimizer_params:
+#      lr: 1e-3
+#      weight_decay: 0.0
+#model:
+#    model: "ResNet18"
+#    model_params:
+#        activation: ReLU
+#        in_channels: 88
+#        out_features: 1
+#lr_scheduler:
+#    lr_scheduler: 'ReduceLROnPlateau'
+#    lr_scheduler_params:
+#        mode: "min"
+#        factor: 0.5
+#        patience: 10
+#        min_lr: 1e-6
+#    lr_scheduler_other_params:
+#        monitor: "Error/Val_total"
+#        interval: "epoch"
+#        frequency: 1

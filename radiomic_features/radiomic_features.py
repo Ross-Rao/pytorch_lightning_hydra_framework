@@ -1,7 +1,4 @@
 # python import
-import os
-from functools import partial
-from multiprocessing import Pool
 # package import
 import SimpleITK as sitk
 import pandas as pd
@@ -9,12 +6,12 @@ import numpy as np
 from skimage import measure
 from radiomics import featureextractor
 # local import
-from logger import logger
-
-__all__ = ['img2mask']
 
 
-def img2mask(img: sitk.Image, threshold: int, ) -> sitk.Image:
+__all__ = ['image2mask', 'extract_features']
+
+
+def image2mask(img: sitk.Image, threshold: int, ) -> sitk.Image:
     """
     Convert an input SimpleITK image to a binary mask image.
 
@@ -30,6 +27,10 @@ def img2mask(img: sitk.Image, threshold: int, ) -> sitk.Image:
 
     Returns:
         sitk.Image: Binary mask image.
+
+    Example:
+        >>> img_path = '/home/user2/data/HCC-WCH/old/43-1.nii.gz'
+        >>> mask = image2mask(sitk.ReadImage(img_path), 400)
     """
     # binarize the image to threshold
     vol_array = sitk.GetArrayFromImage(img)
@@ -48,7 +49,7 @@ def img2mask(img: sitk.Image, threshold: int, ) -> sitk.Image:
     # Remove small spots using morphological closing
     morph_filter = sitk.BinaryMorphologicalClosingImageFilter()
     morph_filter.SetKernelType(sitk.sitkBall)
-    morph_filter.SetKernelRadius(2)
+    morph_filter.SetKernelRadius(5)
     morph_filter.SetForegroundValue(1)
     spotless_img = morph_filter.Execute(threshold_img)
 
@@ -57,11 +58,18 @@ def img2mask(img: sitk.Image, threshold: int, ) -> sitk.Image:
     label = measure.label(spotless_array, connectivity=2)
     props = measure.regionprops(label)
     num_pix = [prop.area for prop in props]
+
+    if len(num_pix) == 0:
+        raise ValueError("No connected components found in the mask.")
+
     # Retain only the largest connected component and set others to 0
     largest_label = np.argmax(num_pix) + 1  # Get the label of the largest component
     label[label != largest_label] = 0  # Set non-largest components to 0
     label[label == largest_label] = 1  # Set the largest component to 1
     label = label.astype("int16")
+
+    if np.sum(label) == 1:
+        raise ValueError("mask only contains 1 segmented voxel! Cannot extract features for a single voxel.")
 
     mask_image = sitk.GetImageFromArray(label)
     mask_image.SetSpacing(img.GetSpacing())
@@ -80,41 +88,8 @@ def extract_features(file_path: str, settings: dict, image_types: list, threshol
         extractor.enableImageTypeByName(t)
     logger.info(f"{file_path} start to extract features")
     image = sitk.ReadImage(file_path)
-    mask = img2mask(image, threshold)
+    mask = image2mask(image, threshold)
     features = extractor.execute(image, mask)
     features['path'] = file_path  # Add image path as identifier
+    logger.info(f"{file_path} extracted")
     return pd.DataFrame([features])  # Convert features to DataFrame
-
-
-if __name__ == "__main__":
-    metadata_path = "/home/user2/data/HCC-WCH/preprocessed/metadata.csv"
-    metadata = pd.read_csv(metadata_path)
-
-    settings = {
-        'binWidth': 10,  # defined by intensity range of the image or normalizedScale.
-        'sigma': [3, 5],
-        'resampledPixelSpacing': [1, 1, 1],
-        'voxelArrayShift': 0,  # whether to shift the image to > 0
-        'normalize': True,
-        'normalizeScale': 100,
-    }
-
-    # image_types = ['Original']
-    image_types = ['LoG', 'Wavelet']
-    features_save_path = f"./{image_types}_radiomics_features.csv"
-
-    # Prepare arguments for multiprocessing
-    file_paths = metadata['path'].tolist()
-    partial_extract_features = partial(extract_features, settings=settings,
-                                       image_types=image_types, threshold=15, logger=logger)
-
-    # Use multiprocessing to extract features in parallel
-    with Pool(processes=os.cpu_count()) as pool:
-        results = pool.map(partial_extract_features, file_paths)
-
-    # Combine all DataFrames into one
-    features_df = pd.concat(results, ignore_index=True)
-
-    # Save features to CSV file
-    features_df.to_csv(features_save_path, index=False)
-    logger.info(f"Radiomics features saved to {features_save_path}")
