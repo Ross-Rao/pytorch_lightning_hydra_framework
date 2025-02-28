@@ -66,6 +66,8 @@ def main(cfg: DictConfig):
     # build data Module
     cfg['dataset']['is_valid_label'] = eval(cfg.get("dataset")['is_valid_label'])
     cfg['dataset']['is_valid_file'] = eval(cfg.get("dataset")['is_valid_file'])  # str to lambda function
+    if cfg.get("dataset").get('grouped_attribute', None) is not None:
+        cfg['dataset']['grouped_attribute'] = eval(cfg.get("dataset")['grouped_attribute'])
     datamodule = LoadedDataModule(**cfg.get("dataset"))
     logger.info("dataloader built.")
 
