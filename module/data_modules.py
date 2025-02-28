@@ -19,6 +19,7 @@ class LoadedDataModule(pl.LightningDataModule):
                  train_loader: dict,
                  val_loader: dict,
                  test_loader: dict,
+                 use_preprocessed: bool = True,
                  is_valid_file: Callable[[str], bool] = None,
                  is_valid_label: Callable[[str], Any] = None,
                  n_folds: int = 5,
@@ -26,8 +27,7 @@ class LoadedDataModule(pl.LightningDataModule):
                  seed: int = 42,
                  transform: dict = None,
                  target_transform: dict = None,
-                 processed_data_save_dir_name: str = 'preprocessed',
-                 processed_data_save_name_dict: dict = None,
+                 processed_data_save_dir: str = './preprocessed',
                  ):
         super().__init__()
         # data
@@ -41,19 +41,8 @@ class LoadedDataModule(pl.LightningDataModule):
         self.target_transform = target_transform
         self.is_valid_file = is_valid_file
         self.is_valid_label = is_valid_label
-
-        # save name dict
-        self.processed_data_save_dir = os.path.join(self.data_dir, processed_data_save_dir_name)
-        if processed_data_save_name_dict is None:
-            self.save_name_dict = {
-                'train': 'train_{0}.pt',  # 0 is placeholder
-                'val': 'val_{0}.pt',
-                'test': 'test.pt',
-            }
-        else:
-            assert {'train', 'val', 'test'} == set(processed_data_save_name_dict.keys()), \
-                "save_name_dict must have keys: train, val, test"
-            self.save_name_dict = processed_data_save_name_dict
+        self.use_preprocessed = use_preprocessed
+        self.preprocessed_data_save_dir = processed_data_save_dir
 
         # loaders
         self.train_loader = train_loader
@@ -68,32 +57,26 @@ class LoadedDataModule(pl.LightningDataModule):
                                                n_folds=self.n_folds,
                                                test_split_radio=self.test_split_radio,
                                                seed=self.seed)
-        self.dataset_folds = LoadedDatasetFolds(data_dir=self.data_dir,
-                                                split_folds=self.split_dataset,
+        self.dataset_folds = LoadedDatasetFolds(split_folds=self.split_dataset,
                                                 transform=self.transform,
                                                 target_transform=self.target_transform,
-                                                processed_data_save_dir_name=self.processed_data_save_dir,
-                                                processed_data_save_name_dict=self.save_name_dict)
+                                                processed_data_save_dir=self.preprocessed_data_save_dir)
 
         # dataset
         self.train_dataset = None
         self.val_dataset = None
         self.test_dataset = None
 
-    def check_integrity(self):
-        paths = [os.path.join(self.processed_data_save_dir, self.save_name_dict['test'])]
-        paths += [os.path.join(self.processed_data_save_dir, self.save_name_dict['train'].format(fold))
-                  for fold in range(self.n_folds)]
-        paths += [os.path.join(self.processed_data_save_dir, self.save_name_dict['val'].format(fold))
-                  for fold in range(self.n_folds)]
-        return all([os.path.exists(path) for path in paths])
-
     def prepare_data(self):
-        if not self.check_integrity():
-            logging.info("Start to prepare data.")
-            self.dataset_folds.save2pts()
+        if not self.dataset_folds.check_integrity():
+            if self.use_preprocessed:
+                logger.info("Start to prepare data.")
+                self.dataset_folds.save2pts()
+            else:
+                logger.info("Only prepare raw data.")
+                self.split_dataset.save2dfs(self.preprocessed_data_save_dir)
         else:
-            logging.info("All data files are already existed.")
+            logger.info("All data files are already existed.")
 
     def setup(self, stage=None):
         self.train_dataset, self.val_dataset, self.test_dataset = self.dataset_folds.get_fold(self.fold)
