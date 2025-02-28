@@ -64,11 +64,14 @@ def main(cfg: DictConfig):
     logger.info("trainer built.")
 
     # build data Module
-    cfg['dataset']['is_valid_label'] = eval(cfg.get("dataset")['is_valid_label'])
-    cfg['dataset']['is_valid_file'] = eval(cfg.get("dataset")['is_valid_file'])  # str to lambda function
-    if cfg.get("dataset").get('grouped_attribute', None) is not None:
-        cfg['dataset']['grouped_attribute'] = eval(cfg.get("dataset")['grouped_attribute'])
-    datamodule = LoadedDataModule(**cfg.get("dataset"))
+    dataset_config = cfg.get("dataset")
+    eval_name = ['is_valid_label', 'is_valid_file', 'grouped_attribute']
+    for name in eval_name:
+        if dataset_config.get(name, None) is not None:
+            # str to lambda function
+            dataset_config[name] = eval(dataset_config[name])
+
+    datamodule = LoadedDataModule(**dataset_config)
     logger.info("dataloader built.")
 
     # build model
