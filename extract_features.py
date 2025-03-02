@@ -13,7 +13,7 @@ from omegaconf import DictConfig, OmegaConf
 from module.data_modules import LoadedDataModule
 from radiomic_features.radiomic_features import extract_features
 from radiomic_features.make_dataset import get_raw_dataset, split_dataset
-from radiomic_features.lasso_regression import feature_selection, logistic_regression
+from radiomic_features.lasso_regression import train_logistic_regression, validate_logistic_regression
 
 # 获取 logger
 logger = logging.getLogger(__name__)
@@ -92,11 +92,28 @@ def main(cfg: DictConfig):
     # 2. split features and metadata
     features_df = get_raw_dataset(metadata_path, features_save_path)
     train, test = split_dataset(features_df)
+    alpha = cfg.get('alpha')
+    seed = cfg.get('seed')
 
     # 3. lasso regression
-    selected = feature_selection(train, 0.2)
-    logger.info(f"selected features:\n{selected.to_string()}")
-    logistic_regression(train[selected.tolist() + ['label']], test[selected.tolist() + ['label']])
+    train_df, test_df = train.copy(), test.copy()
+    model_info = train_logistic_regression(train_df, alpha=alpha, seed=seed)
+    validation_results = validate_logistic_regression(test_df, model_info)
+
+    output_file = os.path.join(work_dir, "validation_results.txt")
+    with open(output_file, "w") as f:
+        f.write("Validation Results:\n")
+        f.write(f"Accuracy: {validation_results['accuracy']:.4f}\n")
+        f.write(f"Precision: {validation_results['precision']:.4f}\n")
+        f.write(f"Recall: {validation_results['recall']:.4f}\n")
+        f.write(f"F1 Score: {validation_results['f1']:.4f}\n")
+        f.write(f"AUC: {validation_results['auc']:.4f}\n")
+        f.write("\nSignificance Summary (Test set):\n")
+        f.write(validation_results['significance_summary'] + "\n")
+        f.write(
+            f"\nPearson Correlation between new feature and label (Test set): "
+            f"{validation_results['pearson_correlation']:.4f}\n")
+        f.write(f"Pearson p-value: {validation_results['pearson_p_value']:.4f}\n")
 
 
 if __name__ == "__main__":

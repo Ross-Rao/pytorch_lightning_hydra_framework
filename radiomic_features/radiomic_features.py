@@ -1,4 +1,5 @@
 # python import
+from typing import Union
 # package import
 import SimpleITK as sitk
 import pandas as pd
@@ -11,7 +12,7 @@ from radiomics import featureextractor
 __all__ = ['image2mask', 'extract_features']
 
 
-def image2mask(img: sitk.Image, threshold: int, ) -> sitk.Image:
+def image2mask(img: sitk.Image, threshold: Union[int, float], ) -> sitk.Image:
     """
     Convert an input SimpleITK image to a binary mask image.
 
@@ -23,17 +24,41 @@ def image2mask(img: sitk.Image, threshold: int, ) -> sitk.Image:
 
     Parameters:
         img (sitk.Image): Input SimpleITK image.
-        threshold (int): Threshold value.
+        threshold (int, float): Threshold value for binarization. If a float, it is interpreted as a percentile.
 
     Returns:
         sitk.Image: Binary mask image.
 
     Example:
-        >>> img_path = '/home/user2/data/HCC-WCH/old/43-1.nii.gz'
-        >>> mask = image2mask(sitk.ReadImage(img_path), 400)
+        >>> img_path = '/home/user2/data/HCC-WCH/old/3-1.nii.gz'
+        >>> image = sitk.ReadImage(img_path)
+        >>> mask = image2mask(image, 0.05)
+        >>> roi_values = sitk.GetArrayFromImage(sitk.Mask(image, mask)).flatten()
+        >>> roi_values = roi_values[roi_values > 0]
+        >>> roi_values = (roi_values - np.min(roi_values)) / (np.max(roi_values) - np.min(roi_values))
+
+        >>> n = len(roi_values)
+        >>> sigma = np.std(roi_values)
+        >>> iqr = np.percentile(roi_values, 75) - np.percentile(roi_values, 25)
+        >>> data_range = np.max(roi_values) - np.min(roi_values)
+
+        >>> # Scott's Rule
+        >>> bin_width_scott = 3.5 * sigma / (n ** (1/3))
+        >>> bin_number_scott = int(np.ceil(data_range / bin_width_scott))
+
+        >>> # Freedman-Diaconis Rule
+        >>> bin_width_fd = 2 * iqr / (n ** (1/3))
+        >>> bin_number_fd = int(np.ceil(data_range / bin_width_fd))
+
+        >>> # 输出结果
+        >>> print(f"Scott's Rule: bin_width = {bin_width_scott}, bin_number = {bin_number_scott}")
+        >>> print(f"Freedman-Diaconis Rule: bin_width = {bin_width_fd}, bin_number = {bin_number_fd}")
     """
     # binarize the image to threshold
     vol_array = sitk.GetArrayFromImage(img)
+    if isinstance(threshold, float):
+        threshold = np.percentile(vol_array, 100 * (1 - threshold))
+
     vol_array = np.where(vol_array > threshold, 1, 0)
     threshold_img = sitk.GetImageFromArray(vol_array)
     threshold_img.SetSpacing(img.GetSpacing())

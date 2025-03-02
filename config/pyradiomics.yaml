@@ -9,14 +9,15 @@ defaults:
 
 
 settings:
-    binWidth: 10  # defined by intensity range of the image or normalizedScale.
-    sigma: [3, 5]
+    binCount: 30
+    sigma: [1.0, 2.0, 3.0, 5.0]  # from small to large
     resampledPixelSpacing: [1, 1, 1]
     voxelArrayShift: 0
     normalize: True
-    normalizeScale: 100
+    normalizeScale: 255
 image_types: ['LoG', 'Wavelet']
-threshold: 300
+threshold: 0.05
+alpha: 0.1
 
 # trainer settings
 #  contains the configuration for the pytorch_lightning.trainer.
