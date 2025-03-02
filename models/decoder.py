@@ -1,4 +1,7 @@
+# python import
+# package import
 import torch.nn as nn
+# local import
 
 __all__ = ['SimpleConvDecoder']
 
