@@ -6,7 +6,7 @@ import statsmodels.api as sm
 from scipy.stats import pearsonr
 from sklearn.linear_model import Lasso, LogisticRegression
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
 # local import
 
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 __all__ = ['train_logistic_regression', 'validate_logistic_regression']
 
 
-def train_logistic_regression(train_df, alpha=0.01, seed=42):
+def train_logistic_regression(train_df, output, alpha=0.01, seed=42):
     # 1. 数据准备
     x_train = train_df.drop(columns=['label'])
     y_train = train_df['label']
@@ -27,7 +27,6 @@ def train_logistic_regression(train_df, alpha=0.01, seed=42):
     lasso = Lasso(alpha=alpha, random_state=seed)
     lasso.fit(x_train_scaled, y_train)
     selected_features = x_train.columns[abs(lasso.coef_) > 0]
-    logger.info("Lasso selected features:\n" + selected_features.to_series().to_string())
 
     # 4. 筛选训练集中的特征
     x_train_selected = x_train[selected_features]
@@ -39,6 +38,10 @@ def train_logistic_regression(train_df, alpha=0.01, seed=42):
     log_reg = LogisticRegression(random_state=seed)
     log_reg.fit(new_feature_train.values.reshape(-1, 1), y_train)
 
+    # 7. write results
+    with open(output, 'w') as f:
+        f.write("Lasso selected features:\n" + selected_features.to_series().to_string() + '\n')
+
     # 返回训练好的模型参数
     return {
         'scaler': scaler,
@@ -48,7 +51,7 @@ def train_logistic_regression(train_df, alpha=0.01, seed=42):
     }
 
 
-def validate_logistic_regression(test_df, model_info):
+def validate_logistic_regression(test_df, output, model_info):
     # 1. 数据准备
     x_test = test_df.drop(columns=['label'])
     y_test = test_df['label']
@@ -85,16 +88,21 @@ def validate_logistic_regression(test_df, model_info):
     # 8. 计算新特征与目标变量的 Pearson 相关性
     correlation, p_value = pearsonr(new_feature_test, y_test)
 
-    # 9. 打包所有结果并返回
-    results = {
-        'accuracy': accuracy,
-        'precision': precision,
-        'recall': recall,
-        'f1': f1,
-        'auc': auc,
-        'significance_summary': significance_summary,  # 显著性检验结果
-        'pearson_correlation': correlation,
-        'pearson_p_value': p_value
-    }
+    # 9. 计算混淆矩阵
+    confusion_matrix_result = confusion_matrix(y_test, y_pred)
 
-    return results
+    with open(output, 'w') as f:
+        f.write(f"Accuracy: {accuracy:.4f}\n")
+        f.write(f"Precision: {precision:.4f}\n")
+        f.write(f"Recall: {recall:.4f}\n")
+        f.write(f"F1: {f1:.4f}\n")
+        f.write(f"AUC: {auc:.4f}\n")
+        f.write("\n")
+        f.write("Significance test:\n")
+        f.write(significance_summary)
+        f.write("\n")
+        f.write(f"Pearson correlation: {correlation:.4f}, p-value: {p_value:.4f}\n")
+        f.write("\n")
+        f.write("Confusion matrix:\n")
+        f.write(pd.DataFrame(confusion_matrix_result).to_string())
+        f.write("\n")

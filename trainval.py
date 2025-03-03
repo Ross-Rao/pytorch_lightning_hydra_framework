@@ -60,23 +60,9 @@ def main(cfg: DictConfig):
     seed = cfg.get('seed')
 
     train_df, test_df = train.copy(), test.copy()
-    model_info = train_logistic_regression(train_df, alpha=alpha, seed=seed)
-    validation_results = validate_logistic_regression(test_df, model_info)
-
     output_file = os.path.join(work_dir, "validation_results.txt")
-    with open(output_file, "w") as f:
-        f.write("Validation Results:\n")
-        f.write(f"Accuracy: {validation_results['accuracy']:.4f}\n")
-        f.write(f"Precision: {validation_results['precision']:.4f}\n")
-        f.write(f"Recall: {validation_results['recall']:.4f}\n")
-        f.write(f"F1 Score: {validation_results['f1']:.4f}\n")
-        f.write(f"AUC: {validation_results['auc']:.4f}\n")
-        f.write("\nSignificance Summary (Test set):\n")
-        f.write(validation_results['significance_summary'] + "\n")
-        f.write(
-            f"\nPearson Correlation between new feature and label (Test set): "
-            f"{validation_results['pearson_correlation']:.4f}\n")
-        f.write(f"Pearson p-value: {validation_results['pearson_p_value']:.4f}\n")
+    model_info = train_logistic_regression(train_df, output_file, alpha=alpha, seed=seed)
+    validate_logistic_regression(test_df, output_file, model_info)
 
 
 if __name__ == "__main__":

@@ -1,14 +1,16 @@
 # python import
+import logging
 from typing import Union
 # package import
 import SimpleITK as sitk
 import pandas as pd
 import numpy as np
 from skimage import measure
-from radiomics import featureextractor
+from radiomics import featureextractor, setVerbosity
 # local import
 
 
+setVerbosity(logging.CRITICAL)
 __all__ = ['image2mask', 'extract_features']
 
 

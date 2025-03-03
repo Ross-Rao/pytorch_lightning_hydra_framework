@@ -18,6 +18,7 @@ settings:
 image_types: ['LoG', 'Wavelet']
 threshold: 0.05
 alpha: 0.1
+seed: 50
 
 # trainer settings
 #  contains the configuration for the pytorch_lightning.trainer.
