@@ -58,7 +58,7 @@ class SplitDatasetFolds:
                 'metadata': 'metadata.csv',
             }
         else:
-            assert {'train', 'val', 'tset'} == set(save_name_dict.keys()), \
+            assert {'train', 'val', 'test'} == set(save_name_dict.keys()), \
                 "save_name_dict must have keys: train, val, test"
             self.save_name_dict = save_name_dict
 
