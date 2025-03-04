@@ -113,8 +113,8 @@ class LoadedDatasetFolds:
         >>> trans = dict(NiftiToTensor=None, PadChannels=88, Resize=256, RandomCrop=224)
         >>> save_dir_name = "./processed_data"
         >>> loaded_dataset = LoadedDatasetFolds(split_dataset, save_dir_name, transform=trans)
-        >>> loaded_dataset.save2pts()
-        >>> train_dataset, val_dataset, test_dataset = loaded_dataset.get_fold(0)
+        >>> loaded_dataset.save()
+        >>> train_dataset, val_dataset, test_dataset = loaded_dataset.load(0)
     """
     def __init__(self, split_folds: SplitDatasetFolds,
                  processed_data_save_dir: str,
@@ -149,41 +149,40 @@ class LoadedDatasetFolds:
                   for fold in range(len(self.split_datasets))]
         return all([os.path.exists(path) for path in paths])
 
-    def save2pts(self):
+    def save(self, save_pt: bool = True):
         if not os.path.exists(self.processed_data_save_dir):
             os.makedirs(self.processed_data_save_dir)
 
         # save loaded split data
         self.split_datasets.save2dfs(self.processed_data_save_dir)
+
+        if save_pt:
+            self._save_test()
+            for fold in range(self.split_datasets.n_folds):
+                self._save_train_val(fold)
+
+    def load(self, fold: int, use_pt: bool = True):
+        if use_pt:
+            train_dataset, val_dataset = self._load_train_val_from_pt(fold)
+            test_dataset = self._load_test_from_pt()
+        else:
+            train_dataset, val_dataset = self._load_train_val_from_raw(fold)
+            test_dataset = self._load_test_from_raw()
+
+        return train_dataset, val_dataset, test_dataset
+
+    def _load_train_val_from_raw(self, fold: int):
         partial_load_dataset = partial(LoadedDataset, transform=self.transform,
                                        target_transform=self.target_transform)
+        train_dataset, val_dataset = self.split_datasets.get_train_val_datasets(fold)
+        train_dataset = partial_load_dataset(dataset=train_dataset)
+        val_dataset = partial_load_dataset(dataset=val_dataset)
 
-        test_dataset = partial_load_dataset(dataset=self.split_datasets.get_test_dataset())
-        test_save_path = os.path.join(self.processed_data_save_dir, self.save_name_dict['test'])
-        test_dataset.save2pt(test_save_path)
-        logger.info(f"{self.save_name_dict['test']} saved")
+        return train_dataset, val_dataset
 
-        for fold in range(self.split_datasets.n_folds):
-            # save loaded fold data
-            train_dataset, val_dataset = self.split_datasets.get_train_val_datasets(fold)
-
-            train_dataset = partial_load_dataset(dataset=train_dataset)
-            train_save_path = os.path.join(self.processed_data_save_dir, self.save_name_dict['train'].format(fold))
-            train_dataset.save2pt(train_save_path)
-
-            val_dataset = partial_load_dataset(dataset=val_dataset)
-            val_save_path = os.path.join(self.processed_data_save_dir, self.save_name_dict['val'].format(fold))
-            val_dataset.save2pt(val_save_path)
-            logger.info(f"{self.save_name_dict['train'].format(fold)} and "
-                        f"{self.save_name_dict['val'].format(fold)} saved")
-
-    def get_fold(self, fold: int):
+    def _load_train_val_from_pt(self, fold: int):
         train_save_path = os.path.join(self.processed_data_save_dir, self.save_name_dict['train'].format(fold))
         val_save_path = os.path.join(self.processed_data_save_dir, self.save_name_dict['val'].format(fold))
-        test_save_path = os.path.join(self.processed_data_save_dir, self.save_name_dict['test'])
-
-        test_lt = torch.load(test_save_path)
-        test_dataset = TensorDataset(*test_lt)
 
         train_lt = torch.load(train_save_path)
         train_dataset = TensorDataset(*train_lt)
@@ -191,11 +190,41 @@ class LoadedDatasetFolds:
         val_lt = torch.load(val_save_path)
         val_dataset = TensorDataset(*val_lt)
 
-        return train_dataset, val_dataset, test_dataset
+        return train_dataset, val_dataset
+
+    def _load_test_from_pt(self):
+        test_save_path = os.path.join(self.processed_data_save_dir, self.save_name_dict['test'])
+        test_lt = torch.load(test_save_path)
+        test_dataset = TensorDataset(*test_lt)
+        return test_dataset
+
+    def _save_train_val(self, fold: int):
+        train_dataset, val_dataset = self._load_train_val_from_raw(fold)
+        train_save_path = os.path.join(self.processed_data_save_dir, self.save_name_dict['train'].format(fold))
+        val_save_path = os.path.join(self.processed_data_save_dir, self.save_name_dict['val'].format(fold))
+
+        train_dataset.save2pt(train_save_path)
+        val_dataset.save2pt(val_save_path)
+        logger.info(f"{self.save_name_dict['train'].format(fold)} and "
+                    f"{self.save_name_dict['val'].format(fold)} saved")
+
+    def _load_test_from_raw(self):
+        test_dataset = LoadedDataset(
+            dataset=self.split_datasets.get_test_dataset(),
+            transform=self.transform,
+            target_transform=self.target_transform
+        )
+        return test_dataset
+
+    def _save_test(self):
+        test_dataset = self._load_test_from_raw()
+        test_save_path = os.path.join(self.processed_data_save_dir, self.save_name_dict['test'])
+        test_dataset.save2pt(test_save_path)
+        logger.info(f"{self.save_name_dict['test']} saved")
 
     def __len__(self):
         return len(self.split_datasets)
 
     def generator(self):
         for fold in range(len(self.split_datasets)):
-            yield self.get_fold(fold)
+            yield self.load(fold)

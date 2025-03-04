@@ -52,15 +52,15 @@ class LoadedDataModule(pl.LightningDataModule):
         self.test_loader = test_loader
 
         # dataset folds
-        self.raw_dataset = RawDataset(data_dir=self.data_dir,
-                                      is_valid_file=self.is_valid_file,
-                                      is_valid_label=self.is_valid_label,
-                                      grouped_attribute=self.grouped_attribute)
-        self.split_dataset = SplitDatasetFolds(raw_dataset=self.raw_dataset,
-                                               n_folds=self.n_folds,
-                                               test_split_radio=self.test_split_radio,
-                                               seed=self.seed)
-        self.dataset_folds = LoadedDatasetFolds(split_folds=self.split_dataset,
+        raw_dataset = RawDataset(data_dir=self.data_dir,
+                                 is_valid_file=self.is_valid_file,
+                                 is_valid_label=self.is_valid_label,
+                                 grouped_attribute=self.grouped_attribute)
+        split_dataset = SplitDatasetFolds(raw_dataset=raw_dataset,
+                                          n_folds=self.n_folds,
+                                          test_split_radio=self.test_split_radio,
+                                          seed=self.seed)
+        self.dataset_folds = LoadedDatasetFolds(split_folds=split_dataset,
                                                 transform=self.transform,
                                                 target_transform=self.target_transform,
                                                 processed_data_save_dir=self.preprocessed_data_save_dir)
@@ -72,17 +72,14 @@ class LoadedDataModule(pl.LightningDataModule):
 
     def prepare_data(self):
         if not self.dataset_folds.check_integrity():
-            if self.use_preprocessed:
-                logger.info("Start to prepare data.")
-                self.dataset_folds.save2pts()
-            else:
-                logger.info("Only prepare raw data.")
-                self.split_dataset.save2dfs(self.preprocessed_data_save_dir)
+            logger.info("Start to prepare data.")
+            self.dataset_folds.save(save_pt=self.use_preprocessed)
         else:
             logger.info("All data files are already existed.")
 
     def setup(self, stage=None):
-        self.train_dataset, self.val_dataset, self.test_dataset = self.dataset_folds.get_fold(self.fold)
+        self.train_dataset, self.val_dataset, self.test_dataset = (
+            self.dataset_folds.load(self.fold, use_pt=self.use_preprocessed))
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, **self.train_loader)
