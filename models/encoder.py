@@ -17,8 +17,8 @@ class ResNetEncoder(nn.Module):
         >>> tensor = torch.randn(1, 3, 224, 224)
         >>> model = ResNetEncoder(backbone='resnet34', pretrained=True, freeze_all=False)
         >>> output = model(tensor)
-        >>> print(output.shape)  # torch.Size([1, 512, 7, 7]) but torch will turn 4d tensor into 2d tensor
-        torch.Size([1, 25088])
+        >>> print(output.shape)  # torch.Size([1, 512, 7, 7]) but torchvision will flatten it
+        torch.Size([1, 25088])  # modify implementation in torchvision.models.resnet.ResNet to get original shape
     """
     def __init__(self, backbone, in_channels=3, pretrained=True, freeze_all=False):
         super(ResNetEncoder, self).__init__()
