@@ -12,13 +12,13 @@ def scaled_dot_product_attention(q, k, v, attention_dropout=None):
     softmax((q @ k^T) / sqrt(d_k)) @ v
     """
     dim_key = k.size(-1)
-    attention_score = (q @ k.transpose(-2, -1)) / np.sqrt(dim_key)
+    attention_score = torch.bmm(q, k.transpose(-2, -1)) / np.sqrt(dim_key)
 
     if attention_dropout is not None:
         attention_score = attention_dropout(attention_score)
 
     attention_weight = F.softmax(attention_score, dim=-1)
-    result = attention_weight @ v
+    result = torch.bmm(attention_weight, v)
     return result
 
 
