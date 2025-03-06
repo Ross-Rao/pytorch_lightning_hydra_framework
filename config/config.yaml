@@ -19,7 +19,7 @@ callbacks:  # inline definition of callbacks, don't change the name
         save_last: True
     EarlyStopping:
         monitor: 'val_loss'
-        patience: 5
+        patience: 10
         mode: 'min'
     TQDMProgressBar:
         refresh_rate: 1
@@ -27,11 +27,11 @@ trainer:  # inline definition of trainer, don't change the name
     max_epochs: 400
     accelerator: 'gpu'
     devices: 1
-    check_val_every_n_epoch: 1
-    log_every_n_steps: 1
+    check_val_every_n_epoch: 5
+    log_every_n_steps: 2
 
 # module settings: used in module/example_module.py
-criterion: 'MSELoss'
+criterion: 'CrossEntropyLoss'
 optimizer:
     optimizer: SGD
     optimizer_params:
@@ -42,7 +42,7 @@ model:
     model_params:
         activation: ReLU
         in_channels: 88
-        out_features: 1
+        out_features: 2
 #lr_scheduler:
 #    lr_scheduler: 'ReduceLROnPlateau'
 #    lr_scheduler_params:
