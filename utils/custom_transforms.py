@@ -149,13 +149,13 @@ class NiftiToTensor:
     the data to the range [0, 1] by shifting and scaling the data.
 
     Attributes:
-        dtype (torch.dtype): The target data type for the output Tensor (default: torch.float32).
+        dtype (str): The target data type for the output Tensor (default: torch.float32).
         normalize (bool): Whether to normalize the data to the range [0, 1] (default: False).
 
     Example:
         >>> nifti_path = "/home/user2/data/HCC-WCH/old/3-1.nii.gz"
         >>> nifti_image = sitk.ReadImage(nifti_path)
-        >>> to_tensor = NiftiToTensor(dtype=torch.float64)
+        >>> to_tensor = NiftiToTensor(dtype='float64')
         >>> tensor_data = to_tensor(nifti_image)
         >>> print(tensor_data.shape)
         torch.Size([72, 220, 352])
@@ -163,8 +163,8 @@ class NiftiToTensor:
         torch.float64
     """
 
-    def __init__(self, dtype=torch.float32, normalize=False):
-        self.dtype = dtype
+    def __init__(self, dtype='float32', normalize=False):
+        self.dtype = getattr(torch, dtype, torch.float32)
         self.normalize = normalize
 
     def __call__(self, nifti_image):
@@ -190,8 +190,8 @@ class NiftiToTensor:
 
 
 class ToTensorWithoutNormalization:
-    def __init__(self, dtype=torch.float32):
-        self.dtype = dtype
+    def __init__(self, dtype='float32'):
+        self.dtype = getattr(torch, dtype, torch.float32)
 
     def __call__(self, img):
         return torch.tensor(img, dtype=self.dtype)
