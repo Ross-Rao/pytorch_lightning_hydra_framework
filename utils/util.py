@@ -26,9 +26,9 @@ def get_multi_attr(modules: list, attr: dict):
         funcs = [getattr(module, func_name, None) for module in modules]
         valid_funcs = [func for func in funcs if func is not None]
         if not valid_funcs:
-            raise AttributeError(f"Attribute '{func_name}' not found in any of the modules: {', '.join(modules)}")
+            raise AttributeError(f"Attribute '{func_name}' not found in any of the modules: {str(modules)}")
         elif len(valid_funcs) > 1:
-            raise AttributeError(f"Attribute '{func_name}' found in multiple modules: {', '.join(modules)}")
+            raise AttributeError(f"Attribute '{func_name}' found in multiple modules: {str(modules)}")
         else:
             func = valid_funcs[0]
             # if failed, check the value of params
