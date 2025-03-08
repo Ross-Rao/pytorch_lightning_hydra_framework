@@ -13,6 +13,7 @@ class ExampleModule(pl.LightningModule):
                  optimizer: str,
                  optimizer_params: dict,
                  criterion: str,
+                 batch_params: dict = None,
                  lr_scheduler: str = None,
                  lr_scheduler_params: dict = None,
                  lr_scheduler_other_params: dict = None):
@@ -39,6 +40,9 @@ class ExampleModule(pl.LightningModule):
                 **lr_scheduler_other_params,  # monitor, interval, frequency, etc.
             }
 
+        # batch settings
+        self.batch_params = batch_params
+
     def configure_optimizers(self):
         """
         set optimizer and lr_scheduler(optional)
@@ -48,13 +52,18 @@ class ExampleModule(pl.LightningModule):
         else:
             return self.optimizer
 
-    def forward(self, x):
-        return self.model(x)
+    def get_batch(self, batch):
+        if isinstance(batch, dict):  # monai dataloader
+            if self.batch_params:
+                return tuple([batch[key] for key in self.batch_params])
+            else:
+                raise ValueError("batch_params is not provided.")
+        else:  # pytorch dataloader
+            return batch
 
-    def _step(self, batch):
-        x, y = batch
-        y_hat = self.model(x)
-
+    def calculate_loss(self, batch):
+        x, y = self.get_batch(batch)
+        y_hat = self._step(batch)
         if len(y_hat.shape) == 2:
             if y_hat.shape[1] == 1:  # Regression task
                 y_hat = y_hat.reshape(-1)  # Flatten the output
@@ -62,19 +71,24 @@ class ExampleModule(pl.LightningModule):
         loss = self.criterion(y_hat, y)
         return loss
 
+    def _step(self, batch):
+        x, y = self.get_batch(batch)
+        y_hat = self.model(x)
+        return y_hat
+
     def training_step(self, batch, batch_idx):
-        loss = self._step(batch)
+        loss = self.calculate_loss(batch)
         self.log("train_loss", loss)  # train_loss is the key for callback
         return loss
 
     def validation_step(self, batch, batch_idx):
-        loss = self._step(batch)
+        loss = self.calculate_loss(batch)
         self.log("val_loss", loss)  # val_loss is the key for callback
         return loss
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
+        x, y = self.get_batch(batch)
+        y_hat = self._step(batch)
 
         if len(y_hat.shape) == 2:
             if y_hat.shape[1] == 1:
