@@ -1,0 +1,90 @@
+# ilab dataset
+
+metadata:
+    data_dir: '${oc.env:DATASET_LOCATION, ./data}/MVI数据/ROI_224'
+    parser:
+        image: "lambda path: path.endswith('.jpg')"
+        label: "lambda path: int(os.path.basename(path).split('.')[0].split('_')[0][-1])"
+        patient_id: "lambda path: os.path.basename(path).split('.')[0].split('_')[0][:2]"
+        model: "lambda path: os.path.basename(path).split('.')[0].split('_')[1]"
+        number: "lambda path: os.path.basename(path).split('.')[0].split('_')[2]"
+    group_by: ['label', 'patient_id', 'model']
+split:
+    test_split_ratio: 0.1
+    n_folds: 10
+    shuffle: true
+    seed: 42
+    save_dir: "roi224/split"
+    save_name_dict:
+        train: 'train_{0}.csv'  # {0} is a placeholder for fold number
+        val: 'val_{0}.csv'
+        test: 'test.csv'
+    reset_split_index: True  # matters
+    # the memory bank should only store train samples
+    # indices are reset by order: train, val, test
+    # so if input index < model_param.n_samples, it should be train samples
+    # if input index > model_param.n_samples, it should be val or internal test samples
+    # if input index is None, it should be external test samples
+    # it works by:
+    # 1. `split_dataset_folds` by param `reset_split_index` in modules/metadata.py
+    # 2. `IndexTransformd` in utils/custom_transforms.py
+load:
+    fold: 0
+    dataset: 'GridPatchDataset'
+    dataset_params:
+        with_coordinates: False
+        patch_iter:  # PatchIterd
+            keys: ['image']
+            patch_size: [64, 64]
+            overlap: 0.5  # if it goes wrong, try to comment `monai/data/grid_patch_sampler.py: L95`: overlap = 0
+    pre_transform:
+        LoadImaged:
+            keys: ['image']
+        StackImaged:
+            keys: ['image']
+        ToTensord:
+            keys: ['image']
+#        Resized:
+#            keys: ['image']
+#            spatial_size: [256, 256]
+    transform:
+        UpdatePatchIndexd:
+            key: 'index'
+            overlap: 0.5
+        ScaleIntensityd:
+            keys: ['image']
+            minv: 0.0
+            maxv: 1.0
+#        GridPatchd:
+#            keys: ['image']
+#            patch_size: [64, 64]
+#            overlap: 0.5
+#        IndexTransformd:  # 生成patch的全局索引
+#            key: 'index'
+#        StackTensorTransformd:
+#            keys: ['image', 'index']
+    load_dir: "roi224/split"
+    load_name_dict:
+        train: 'train_{0}.csv'  # {0} is a placeholder for fold number
+        val: 'val_{0}.csv'
+        test: 'test.csv'
+loader:
+    train_loader:
+        shuffle: False
+        batch_size: 4096
+        num_workers: 4
+        pin_memory: true
+        persistent_workers: true
+    val_loader:
+        shuffle: False
+        num_workers: 4
+        batch_size: 1024
+    test_loader:
+        shuffle: False
+        num_workers: 4
+        batch_size: 1024
+
+
+#  Normalize:
+#    mean: [0.485, 0.456, 0.406]
+#    std: [0.229, 0.224, 0.225]
