@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 @hydra.main(
     version_base="1.2",
     config_path=os.getenv('CONFIGS_LOCATION', 'config'),
-    config_name="config",
+    config_name="memory_cluster",
 )
 def main(cfg: DictConfig):
     """
