@@ -4,7 +4,7 @@ defaults:
     # hydra settings
     - hydra  # refer to `hydra.yaml`
     # dataset settings
-    - dataset: HCC-WCH  # refer to `dataset/HCC-WCH.yaml`
+    - dataset: HCC-MVI-ROI224  # refer to `dataset/HCC-WCH.yaml`
     - _self_  # 占位符：表示当前文件，在defaults的最后一行声明，可以保证当前文件的配置可覆盖之前的配置
 
 # trainer settings
@@ -19,30 +19,54 @@ callbacks:  # inline definition of callbacks, don't change the name
         save_last: True
     EarlyStopping:
         monitor: 'val_loss'
-        patience: 10
+        patience: 20
         mode: 'min'
     TQDMProgressBar:
         refresh_rate: 1
 trainer:  # inline definition of trainer, don't change the name
-    max_epochs: 400
+    max_epochs: 5
     accelerator: 'gpu'
     devices: 1
-    check_val_every_n_epoch: 5
+    check_val_every_n_epoch: 2
     log_every_n_steps: 2
 
 # module settings: used in module/example_module.py
-criterion: 'CrossEntropyLoss'
+criterion:
+    criterion: 'ModelLoss'
+    criterion_params:
+        # the memory bank should only store train samples
+        # indices are reset by order: train, val, test
+        # so if input index < model_param.n_samples, it should be train samples
+        # if input index > n_samples, it should be val or internal test samples
+        # if input index is None, it should be external test samples
+        # it works by:
+        # 1. `split_dataset_folds` by param `reset_split_index` in modules/monai_data_module.py
+        # 2. `IndexTransformd` in utils/custom_transforms.py
+        n_samples: 28763  # train samples 587 * 49
+        npc_dim: 128
+        neighbors: 1
+        temperature: 0.07
+        momentum: 0.5
+        const: 0
 optimizer:
-    optimizer: SGD
+    optimizer: Adam
     optimizer_params:
-      lr: 1e-3
-      weight_decay: 0.0
+        lr: 1e-3
+        betas: [0.9, 0.999]
 model:
-    model: "ResNet18"
+    model: "EncoderDecoderModel"
     model_params:
-        activation: ReLU
-        in_channels: 88
-        out_features: 2
+        n_classes: 3
+        encoder_in_channels: 2
+        decoder_out_channels: 1
+        decoder_layers: 5
+        pretrained: True
+        encoder: 'resnet34'
+        hidden_dim: 512
+        npc_dim: 128
+        activation: 'ReLU'
+
+
 #lr_scheduler:
 #    lr_scheduler: 'ReduceLROnPlateau'
 #    lr_scheduler_params:

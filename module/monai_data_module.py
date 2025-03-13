@@ -3,16 +3,19 @@ import os
 import logging
 from functools import partial
 # package import
-import pandas as pd
 import monai
+import pandas as pd
+import pytorch_lightning as pl
+from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split, KFold
 from monai import transforms
-from monai.data import PatchIterd, PatchIter
-# local import 
+from monai.data import PatchIterd
+# local import
 from utils import custom_transforms
 from utils.util import get_multi_attr
 
 logger = logging.getLogger(__name__)
+__all__ = ['MonaiDataModule']
 
 
 def load_metadata(data_dir: str, parser: dict, group_by: list = None):
@@ -61,14 +64,16 @@ def load_metadata(data_dir: str, parser: dict, group_by: list = None):
     return meta_df
 
 
-def split_dataset_folds(df: pd.DataFrame,
-                        n_folds: int,
-                        test_split_ratio: float,
-                        shuffle: bool = True,
-                        seed: int = 42,
-                        save_dir: str = "./",
-                        save_name_dict: dict = None,
-                        reset_split_index: bool = False):
+def split_dataset_folds(
+        df: pd.DataFrame,
+        n_folds: int,
+        test_split_ratio: float,
+        shuffle: bool = True,
+        seed: int = 42,
+        save_dir: str = "./",
+        save_name_dict: dict = None,
+        reset_split_index: bool = False
+):
     """
     Split a DataFrame into training, validation, and test sets, and save them as CSV files.
 
@@ -201,19 +206,15 @@ def load_data_to_monai_dataset(
 
     # Pre-transform settings
     if pre_transform:
-        # if you want to use your own transform, you can add them to utils/custom_transforms.py
-        # they will be imported by get_multi_attr
         transforms_lt = get_multi_attr([custom_transforms, transforms, monai.data], pre_transform)
         pre_transform = transforms.Compose(transforms_lt)
-        train_data = pre_transform(train_data)
-        val_data = pre_transform(val_data)
-        test_data = pre_transform(test_data)
+        train_data, val_data, test_data = pre_transform(train_data), pre_transform(val_data), pre_transform(test_data)
 
     # Create MONAI Datasets
     if dataset_params is None:
         dataset_params = {}
     else:
-        if 'patch_iter' in dataset_params.keys():
+        if 'patch_iter' in dataset_params.keys():  # used for GridPatchDataset
             dataset_params['patch_iter'] = PatchIterd(**dataset_params['patch_iter'])
 
     dataset_class = partial(getattr(monai.data, dataset), **dataset_params)
@@ -222,3 +223,30 @@ def load_data_to_monai_dataset(
     test_ds = dataset_class(data=test_data, transform=transform)
 
     return train_ds, val_ds, test_ds
+
+
+class MonaiDataModule(pl.LightningDataModule):
+    def __init__(self,
+                 metadata: dict,
+                 split: dict,
+                 load: dict,
+                 loader: dict):
+        super().__init__()
+        self.metadata = metadata
+        self.split = split
+        self.load = load
+        self.loader = loader
+
+        metadata = load_metadata(**self.metadata)
+        split_dataset_folds(metadata, **self.split)
+        self.train_dataset, self.val_dataset, self.test_dataset = load_data_to_monai_dataset(**self.load)
+        logger.info('dataset loaded')
+
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset, **self.loader['train_loader'])
+
+    def val_dataloader(self):
+        return DataLoader(self.val_dataset, **self.loader['val_loader'])
+
+    def test_dataloader(self):
+        return DataLoader(self.test_dataset, **self.loader['test_loader'])

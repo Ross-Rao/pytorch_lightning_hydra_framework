@@ -9,7 +9,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
 # local import
 from module.example_module import ExampleModule
-from module.data_modules import LoadedDataModule
+from module.monai_data_module import MonaiDataModule
 from utils import callbacks
 from utils.util import get_multi_attr
 
@@ -65,18 +65,12 @@ def main(cfg: DictConfig):
 
     # build data Module
     dataset_config = cfg.get("dataset")
-    eval_name = ['is_valid_label', 'is_valid_file', 'grouped_attribute']
-    for name in eval_name:
-        if dataset_config.get(name, None) is not None:
-            # str to lambda function
-            dataset_config[name] = eval(dataset_config[name])
-
-    datamodule = LoadedDataModule(**dataset_config)
-    logger.info("dataloader built.")
+    datamodule = MonaiDataModule(**dataset_config)
+    logger.info("data module built.")
 
     # build model
     model = ExampleModule(**cfg.get("model"), **cfg.get("optimizer"), **cfg.get("lr_scheduler", {}),
-                          criterion=cfg.get("criterion"))
+                          **cfg.get("criterion"))
     logger.info("model built.")
 
     # train & test model

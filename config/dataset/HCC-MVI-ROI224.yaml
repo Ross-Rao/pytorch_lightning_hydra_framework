@@ -26,13 +26,13 @@ split:
     # if input index > model_param.n_samples, it should be val or internal test samples
     # if input index is None, it should be external test samples
     # it works by:
-    # 1. `split_dataset_folds` by param `reset_split_index` in modules/metadata.py
+    # 1. `split_dataset_folds` by param `reset_split_index` in modules/monai_data_module.py
     # 2. `IndexTransformd` in utils/custom_transforms.py
 load:
     fold: 0
     dataset: 'GridPatchDataset'
     dataset_params:
-        with_coordinates: False
+        with_coordinates: False  # if True, the batch will be a list [image, coordinate]
         patch_iter:  # PatchIterd
             keys: ['image']
             patch_size: [64, 64]
@@ -47,14 +47,6 @@ load:
 #        Resized:
 #            keys: ['image']
 #            spatial_size: [256, 256]
-    transform:
-        UpdatePatchIndexd:
-            key: 'index'
-            overlap: 0.5
-        ScaleIntensityd:
-            keys: ['image']
-            minv: 0.0
-            maxv: 1.0
 #        GridPatchd:
 #            keys: ['image']
 #            patch_size: [64, 64]
@@ -63,6 +55,17 @@ load:
 #            key: 'index'
 #        StackTensorTransformd:
 #            keys: ['image', 'index']
+    transform:
+        UpdatePatchIndexd:
+            key: 'index'
+            overlap: 0.5
+        DropSliced:
+            key: 'image'
+            slice_idx: 1
+        ScaleIntensityd:
+            keys: ['image', 'image_slice']
+            minv: 0.0
+            maxv: 1.0
     load_dir: "roi224/split"
     load_name_dict:
         train: 'train_{0}.csv'  # {0} is a placeholder for fold number

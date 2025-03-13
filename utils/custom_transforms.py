@@ -256,6 +256,20 @@ class IndexTransformd(Transform):
         return data
 
 
+class DropSliced(Transform):
+    def __init__(self, key: str, slice_idx: int):
+        self.key = key
+        self.slice = slice_idx
+
+    def __call__(self, data):
+        image = data[self.key]
+        sliced_image = image[self.slice, :, :].unsqueeze(0)
+        other_slices = torch.cat([image[:self.slice, :, :], image[self.slice+1:, :, :]], dim=0)
+        data[self.key] = other_slices
+        data[f"{self.key}_slice"] = sliced_image
+        return data
+
+
 class UpdatePatchIndexd(Transform):
     def __init__(self, key: str, overlap: float):
         self.key = key
