@@ -62,11 +62,7 @@ class ExampleModule(pl.LightningModule):
             return batch
         elif isinstance(batch, dict):
             # some attributes from (pre)transform
-            # index, neighbor_index: UpdatePatchIndexd
-            # image_slice: DropSliced
-            x = (batch['image'], batch.get('index', None), batch.get('neighbor_index', None))
-            y = (batch['label'], batch.get('image_slice'))  # and metadata
-            return x, y
+            pass
         else:
             raise ValueError('Invalid batch type')
 
@@ -79,16 +75,6 @@ class ExampleModule(pl.LightningModule):
         else:
             raise ValueError('Invalid batch type')
 
-    def on_train_epoch_start(self, max_search_ratio=0.5):
-        # on_train_epoch_start may not suitable for update model parameters, maybe works?
-        # we update anchor in training_step with anchor_update_frequency
-        current_epoch = self.current_epoch
-        update_epoch = [20, 60, 100, 140, 180, 220, 260, 300]
-        if current_epoch in update_epoch:
-            max_epoch = self.trainer.max_epochs
-            search_ratio = current_epoch / max_epoch * max_search_ratio
-            self.criterion.mc.update_anchor(search_rate=search_ratio)
-
     def training_step(self, batch, batch_idx):
         x, y = self.get_batch(batch)
         y_hat = self.model(*x if isinstance(x, tuple) else x)
@@ -98,7 +84,6 @@ class ExampleModule(pl.LightningModule):
                     f"loss: {float(loss)} \n"
                     f"loss_dt: {loss_dt}")
         self.log_dict(loss_dt, batch_size=self.get_batch_size(batch))
-        self.log_general_validation_metrics(y_hat, y, "train")
         self.log("train_loss", loss)  # train_loss is the key for callback
         return loss
 
