@@ -1,12 +1,24 @@
+# python import
 import logging
-import SimpleITK as sitk
+# package import
 import torch
+import numpy as np
+import SimpleITK as sitk
 import torch.nn.functional as F
 from torchvision import transforms
+from monai.transforms import Transform
+# local import
 
 
 logger = logging.getLogger(__name__)
-__all__ = ["ResampleNifti", "PermuteDimensions", "PadChannels", "NiftiToTensor", "ToTensorWithoutNormalization"]
+__all__ = ["ResampleNifti",
+           "PermuteDimensions",
+           "PadChannels",
+           "NiftiToTensor",
+           "ToTensorWithoutNormalization",
+           "StackImaged",
+           "StackTensorTransformd",
+           "IndexTransformd"]
 
 
 class ResampleNifti:
@@ -198,3 +210,98 @@ class ToTensorWithoutNormalization:
 
     def __repr__(self):
         return f"{self.__class__.__name__}(dtype={self.dtype})"
+
+
+class StackImaged(Transform):
+    def __init__(self, keys=None, dim=0):
+        self.keys = keys if keys is not None else ["image"]
+        self.dim = dim
+
+    def __call__(self, data):
+        for key in self.keys:
+            if key not in data:
+                raise KeyError(f"Key '{key}' not found in data dictionary.")
+            images = data[key]
+            stacked_images = np.stack(images, axis=self.dim)
+            data[key] = stacked_images
+        return data
+
+
+class StackTensorTransformd(Transform):
+    def __init__(self, keys: list):
+        self.keys = keys
+
+    def __call__(self, data):
+        for key in self.keys:
+            tensor = data[key]
+            if not isinstance(tensor, torch.Tensor):
+                raise ValueError(f"数据键 '{key}' 的值必须是张量，但当前类型为 {type(tensor)}")
+            if tensor.dim() >= 3:
+                data[key] = tensor.reshape(tensor.shape[0] * tensor.shape[1], *tensor.shape[2:])
+            else:
+                data[key] = tensor.reshape(tensor.shape[0] * tensor.shape[1])
+        return data
+
+
+class IndexTransformd(Transform):
+    def __init__(self, key: str):
+        self.key = key
+
+    def __call__(self, data):
+        assert 'image' in data.keys(), "数据字典中必须包含键 'image'"
+        original_index = data[self.key]
+        num_elements = len(data['image'])  # 获取张量列表的长度
+        new_indices = original_index * num_elements + torch.arange(num_elements)
+        data[self.key] = new_indices
+        return data
+
+
+class DropSliced(Transform):
+    def __init__(self, key: str, slice_idx: int):
+        self.key = key
+        self.slice = slice_idx
+
+    def __call__(self, data):
+        image = data[self.key]
+        sliced_image = image[self.slice, :, :].unsqueeze(0)
+        other_slices = torch.cat([image[:self.slice, :, :], image[self.slice+1:, :, :]], dim=0)
+        data[self.key] = other_slices
+        data[f"{self.key}_slice"] = sliced_image
+        return data
+
+
+class UpdatePatchIndexd(Transform):
+    def __init__(self, key: str, overlap: float):
+        self.key = key
+        self.overlap = overlap
+
+    def __call__(self, data):
+        assert 'image' in data.keys(), "数据字典中必须包含键 'image'"
+        # 获取原始图像的索引
+        original_index = data[self.key]
+        # 获取当前 patch 的偏移量
+        origin_space = torch.tensor(data['original_spatial_shape'])
+        window_space = torch.tensor(data['image'].shape[-len(origin_space):])
+        coordinate = torch.tensor(data['patch_coords'][-len(origin_space):])[:, 0]
+        stride = (window_space * (1 - self.overlap)).long()
+        coordinate = (coordinate / stride).long()
+        count = (origin_space / stride).long()
+        offset_array = torch.arange(int(count.prod())).reshape(count.tolist())
+        offset = offset_array[tuple(coordinate.tolist())]
+
+        # find neighbor coordinates
+        d_lt = [line for line in torch.eye(count.size(0), dtype=torch.long)]
+        prob_coords = [coordinate + d for d in d_lt] + [coordinate - d for d in d_lt]
+        zero = torch.zeros_like(count, dtype=torch.long)
+        bool_valid = [(zero <= coord).all() and (coord < count).all() for coord in prob_coords]
+        first_true_index = next((i for i, tensor in enumerate(bool_valid) if tensor.item()), None)
+        neighbor_coords = prob_coords[first_true_index]
+        neighbor_offset = offset_array[tuple(neighbor_coords.tolist())]
+
+        # 计算 patch 的索引
+        patch_index = original_index * count.prod() + offset
+        neighbor_index = original_index * count.prod() + neighbor_offset
+        # 将更新后的索引添加到数据中
+        data[self.key] = patch_index
+        data['neighbor_index'] = neighbor_index
+        return data
