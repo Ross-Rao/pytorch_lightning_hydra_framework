@@ -140,8 +140,8 @@ def split_dataset_folds(
 
 def load_data_to_monai_dataset(
         fold: int,
-        pre_transform: dict,
-        transform: dict,
+        pre_transform: dict = None,
+        transform: dict = None,
         dataset: str = 'Dataset',
         dataset_params: dict = None,
         load_dir: str = "./",

@@ -250,7 +250,7 @@ class IndexTransformd(Transform):
     def __call__(self, data):
         assert 'image' in data.keys(), "数据字典中必须包含键 'image'"
         original_index = data[self.key]
-        num_elements = len(data['image'])  # 获取张量列表的长度
+        num_elements = 1 if len(data['image'].shape) <= 3 else len(data['image'])  # 获取张量列表的长度
         new_indices = original_index * num_elements + torch.arange(num_elements)
         data[self.key] = new_indices
         return data
@@ -263,8 +263,14 @@ class DropSliced(Transform):
 
     def __call__(self, data):
         image = data[self.key]
-        sliced_image = image[self.slice, :, :].unsqueeze(0)
-        other_slices = torch.cat([image[:self.slice, :, :], image[self.slice+1:, :, :]], dim=0)
+        if isinstance(image, torch.Tensor):
+            sliced_image = image[self.slice, :, :].unsqueeze(0)
+            other_slices = torch.cat([image[:self.slice, :, :], image[self.slice+1:, :, :]], dim=0)
+        elif isinstance(image, np.ndarray):
+            sliced_image = image[self.slice, :, :].reshape(1, *image.shape[1:])
+            other_slices = np.concatenate([image[:self.slice, :, :], image[self.slice+1:, :, :]], axis=0)
+        else:
+            raise TypeError(f"Unsupported image type: {type(image)}")
         data[self.key] = other_slices
         data[f"{self.key}_slice"] = sliced_image
         return data
@@ -303,5 +309,21 @@ class UpdatePatchIndexd(Transform):
         neighbor_index = original_index * count.prod() + neighbor_offset
         # 将更新后的索引添加到数据中
         data[self.key] = patch_index
-        data['neighbor_index'] = neighbor_index
+        data[f"original_{self.key}"] = original_index
+        data[f'neighbor_{self.key}'] = neighbor_index
+        return data
+
+
+class CreateCopyd(Transform):
+    def __init__(self, keys: list):
+        self.keys = keys
+
+    def __call__(self, data):
+        for key in self.keys:
+            if isinstance(data[key], torch.Tensor):
+                data[key + '_copy'] = data[key].clone()
+            elif isinstance(data[key], np.ndarray):
+                data[key + '_copy'] = data[key].copy()
+            else:
+                raise TypeError(f"Unsupported data type for key '{key}': {type(data[key])}")
         return data

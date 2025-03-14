@@ -5,9 +5,11 @@ import torch
 import pytorch_lightning as pl
 from torch.nn.functional import l1_loss, mse_loss
 from torchmetrics.functional.classification import auroc, accuracy, precision, recall, f1_score
+from torchmetrics.image import (PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure,
+                                LearnedPerceptualImagePatchSimilarity)
 # local import
 import models
-from utils.util import get_multi_attr
+from utils.util import get_multi_attr, patches2images
 
 logger = logging.getLogger(__name__)
 __all__ = ['ExampleModule']
@@ -84,6 +86,7 @@ class ExampleModule(pl.LightningModule):
                     f"loss: {float(loss)} \n"
                     f"loss_dt: {loss_dt}")
         self.log_dict(loss_dt, batch_size=self.get_batch_size(batch))
+        # self.log_general_validation_metrics(y_hat, y, "train")  # not necessary, only debug
         self.log("train_loss", loss)  # train_loss is the key for callback
         return loss
 
@@ -125,6 +128,20 @@ class ExampleModule(pl.LightningModule):
                     logger.info(f"evaluation: {self._multiclass_classification_metrics(y_hat, y, stage)}")
                 else:
                     raise ValueError("Invalid shape for y_hat.")
+            elif len(y_hat.shape) == 4:  # Image reconstruction task
+                self.log_dict(self._image_reconstruction_metrics(y_hat, y, stage), batch_size=y.size(0))
+                logger.info(f"evaluation: {self._image_reconstruction_metrics(y_hat, y, stage)}")
+
+    def _save_reconstruction_images(self, images, index, coords=None):
+        if coords is not None:
+            images, image_indices = patches2images(image_indices=index, patches=images, coords=coords)
+            for i, (image, image_index) in enumerate(zip(images, image_indices)):
+                self.logger.experiment.add_image(f"test_image_{image_index}", image,
+                                                 dataformats='CHW', global_step=self.global_step)
+        else:
+            for i, (image, image_index) in enumerate(zip(images, index)):
+                self.logger.experiment.add_image(f"test_image_{float(image_index)}", torch.round(image * 255).byte(),
+                                                 dataformats='CHW', global_step=self.global_step)
 
     @staticmethod
     def _regression_metrics(y_hat, y, stage):
@@ -157,4 +174,20 @@ class ExampleModule(pl.LightningModule):
             f"{stage}/recall": float(recall(pred, y, **param_dt)),
             f"{stage}/f1": float(f1_score(pred, y, **param_dt)),
             f"{stage}/auc": float(auroc(probs, y, **param_dt))
+        }
+
+    @staticmethod
+    def _image_reconstruction_metrics(y_hat, y, stage):
+        # input range [0, 1]
+        psnr_metric = PeakSignalNoiseRatio().to(y.device)
+        ssim_metric = StructuralSimilarityIndexMeasure().to(y.device)
+        lpips_metric = LearnedPerceptualImagePatchSimilarity().to(y.device)
+        y_hat_lpips = y_hat.repeat(1, 3, 1, 1) * 2 - 1 if y_hat.size(1) == 1 else y_hat * 2 - 1
+        y_lpips = y.repeat(1, 3, 1, 1) * 2 - 1 if y.size(1) == 1 else y * 2 - 1
+        return {
+            f"{stage}/psnr": float(psnr_metric(y_hat, y)),
+            f"{stage}/ssim": float(ssim_metric(y_hat, y)),
+            f"{stage}/lpips": float(lpips_metric(y_hat_lpips, y_lpips)),
+            f"{stage}/mae": float(l1_loss(y_hat, y)),
+            f"{stage}/mse": float(mse_loss(y_hat, y))
         }

@@ -1,6 +1,9 @@
+# python import
+# package import
+import torch
+# local import
 
-
-__all__ = ["get_multi_attr", "AverageMeter"]
+__all__ = ["get_multi_attr", "AverageMeter", "patches2images", "patches2image"]
 
 
 def get_multi_attr(modules: list, attr: dict):
@@ -62,3 +65,49 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+
+def patches2images(image_indices, patches, coords):
+    """
+    Reconstructs images from their patches and coordinates.
+
+    Args:
+        image_indices (torch.Tensor): Tensor containing the indices of the original images.
+        patches (torch.Tensor): Tensor of shape (b, c, h, w) containing image patches.
+        coords (torch.Tensor): Tensor of shape (b, 3, 2) containing the coordinates of the patches.
+
+    Returns:
+        tuple: A tuple containing:
+            - images (list): List of reconstructed images as byte tensors.
+            - original_pic_indices (torch.Tensor): Tensor containing the unique indices of the original images.
+    """
+    original_pic_indices = torch.unique(image_indices)
+    images = []
+    for original_pic_index in original_pic_indices:
+        patch_indices = (image_indices == original_pic_index)
+        image = patches2image(patches[patch_indices] * 255, coords[patch_indices])
+        images.append(image)
+    return images, original_pic_indices
+
+
+def patches2image(patches, coords):
+    """
+        Reconstructs an image from its patches and coordinates.
+
+        Args:
+            patches (torch.Tensor): Tensor of shape (b, c, h, w) containing image patches.
+            coords (torch.Tensor): Tensor of shape (b, 3, 2) containing the coordinates of the patches.
+
+        Returns:
+            torch.Tensor: Reconstructed image as a byte tensor.
+        """
+    b, c, h, w = patches.shape
+    max_y = int(coords[:, 1, :].max().item())
+    max_x = int(coords[:, 2, :].max().item())
+    image = torch.zeros((b, c, max_y, max_x), dtype=patches.dtype, device=patches.device)
+    for i in range(b):
+        image[i, :, coords[i, -2, 0]:coords[i, -2, 1], coords[i, -1, 0]:coords[i, -1, 1]] = patches[i]
+    non_zero_counts = torch.count_nonzero(image, dim=0)  # (c, max_y, max_x)
+    image = torch.sum(image, dim=0)  # stack patches to (c, max_y, max_x)
+    image = torch.where(non_zero_counts > 0, image / non_zero_counts, 0)
+    return torch.round(image).byte()
