@@ -4,7 +4,7 @@ defaults:
     # hydra settings
     - hydra  # refer to `hydra.yaml`
     # dataset settings
-    - dataset: HCC-MVI-ROI224  # refer to `dataset/HCC-WCH.yaml`
+    - dataset: HCC-MVI-ROI64-no-patch-no-recon  # refer to `dataset/HCC-WCH.yaml`
     - _self_  # 占位符：表示当前文件，在defaults的最后一行声明，可以保证当前文件的配置可覆盖之前的配置
 
 # trainer settings
@@ -24,7 +24,7 @@ callbacks:  # inline definition of callbacks, don't change the name
     TQDMProgressBar:
         refresh_rate: 1
 trainer:  # inline definition of trainer, don't change the name
-    max_epochs: 5
+    max_epochs: 400
     accelerator: 'gpu'
     devices: 1
     check_val_every_n_epoch: 2
@@ -42,7 +42,8 @@ criterion:
         # it works by:
         # 1. `split_dataset_folds` by param `reset_split_index` in modules/monai_data_module.py
         # 2. `IndexTransformd` in utils/custom_transforms.py
-        n_samples: 28763  # train samples 587 * 49
+        stage: 1
+        n_samples: 1746  # train samples 588
         npc_dim: 128
         neighbors: 1
         temperature: 0.07
@@ -56,8 +57,9 @@ optimizer:
 model:
     model: "EncoderDecoderModel"
     model_params:
+        stage: 1
         n_classes: 3
-        encoder_in_channels: 2
+        encoder_in_channels: 1
         decoder_out_channels: 1
         decoder_layers: 5
         pretrained: True

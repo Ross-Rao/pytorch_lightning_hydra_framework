@@ -1,7 +1,7 @@
 # ilab dataset
 
 metadata:
-    data_dir: '${oc.env:DATASET_LOCATION, ./data}/MVI数据/ROI_224'
+    data_dir: '${oc.env:DATASET_LOCATION, ./data}/MVI数据/ROI_64'
     parser:
         image: "lambda path: path.endswith('.jpg')"
         label: "lambda path: int(os.path.basename(path).split('.')[0].split('_')[0][-1])"
@@ -10,11 +10,12 @@ metadata:
         number: "lambda path: os.path.basename(path).split('.')[0].split('_')[2]"
     group_by: ['label', 'patient_id', 'model']
 split:
+    split_cols: ['patient_id']
     test_split_ratio: 0.1
     n_folds: 10
     shuffle: true
     seed: 42
-    save_dir: "roi224/split"
+    save_dir: "roi64/split"
     save_name_dict:
         train: 'train_{0}.csv'  # {0} is a placeholder for fold number
         val: 'val_{0}.csv'
@@ -30,37 +31,24 @@ split:
     # 2. `IndexTransformd` in utils/custom_transforms.py
 load:
     fold: 0
-    dataset: 'GridPatchDataset'
+    dataset: 'Dataset'
     dataset_params:
-        with_coordinates: False  # if True, the batch will be a list [image, coordinate]
-        patch_iter:  # PatchIterd
-            keys: ['image', 'image_slice']
-            patch_size: [64, 64]
-            overlap: 0  # if it goes wrong, try to comment `monai/data/grid_patch_sampler.py: L95`: overlap = 0
-    pre_transform:
+    transform:
         LoadImaged:
             keys: ['image']
-        Resized:
+        EnsureChannelFirstd:
             keys: ['image']
-            spatial_size: [256, 256]
         StackImaged:
             keys: ['image']
-        DropSliced:
-            key: 'image'
-            slice_idx: 1  # create a new key 'image_slice' with the slice index
         ToTensord:
-            keys: ['image', 'image_slice']
-    transform:
-        UpdatePatchIndexd:
+            keys: ['image']
+        IndexTransformd:  # 生成patch的全局索引
             key: 'index'
-            overlap: 0.5
-#        CreateCopyd:
-#            keys: ['image_slice']  # create 'image_slice_copy'
         ScaleIntensityd:
-            keys: ['image', 'image_slice']
+            keys: ['image']
             minv: 0.0
             maxv: 1.0
-    load_dir: "roi224/split"
+    load_dir: "roi64/split"
     load_name_dict:
         train: 'train_{0}.csv'  # {0} is a placeholder for fold number
         val: 'val_{0}.csv'
@@ -68,18 +56,18 @@ load:
 loader:
     train_loader:
         shuffle: False
-        batch_size: 1024
+        batch_size: 32
         num_workers: 4
         pin_memory: true
         persistent_workers: true
     val_loader:
         shuffle: False
         num_workers: 4
-        batch_size: 1024
+        batch_size: 32
     test_loader:
         shuffle: False
         num_workers: 4
-        batch_size: 1024
+        batch_size: 32
 
 
 #  Normalize:
