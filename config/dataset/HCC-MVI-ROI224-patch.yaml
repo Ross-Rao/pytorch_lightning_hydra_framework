@@ -12,6 +12,7 @@ metadata:
         number: "lambda path: os.path.basename(path).split('.')[0].split('_')[2]"
     group_by: ['label', 'patient_id', 'model']  # groupby op will stack the `image` with the same group
 split:
+    split_cols: ['patient_id']  # split by `patient_id` to avoid data leakage
     test_split_ratio: 0.1
     n_folds: 10
     shuffle: true
