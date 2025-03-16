@@ -6,7 +6,7 @@ from torchvision.models.resnet import resnet34, resnet50, resnet18
 # local import
 from models.attention import Attention
 
-__all__ = ['ResNetEncoder']
+__all__ = ['ResNetEncoder', 'TransformerEncoder', 'TransformerEncoderLayer']
 
 
 class ResNetEncoder(nn.Module):
@@ -143,8 +143,15 @@ class TransformerEncoder(nn.Module):
         >>> print(output.shape)
         torch.Size([1, 32, 512])
     """
-    def __init__(self, embedding_dim, sequence_length, num_heads, num_layers, dim_feedforward=2048, dropout=0.1,
-                 attention_dropout=0.1, positional_embedding='sinusoidal', drop_path_rate=0.1):
+    def __init__(self, embedding_dim,
+                 sequence_length,
+                 num_heads,
+                 num_layers,
+                 dim_feedforward=2048,
+                 dropout=0.1,
+                 attention_dropout=0.1,
+                 positional_embedding='sinusoidal',
+                 drop_path_rate=0.1):
         super().__init__()
         if positional_embedding == 'sinusoidal':
             self.positional_embedding = nn.Parameter(self.sinusoidal_embedding(sequence_length, embedding_dim),
