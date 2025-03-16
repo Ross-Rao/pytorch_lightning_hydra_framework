@@ -17,7 +17,7 @@ split:
     n_folds: 10
     shuffle: true
     seed: 42
-    save_dir: "roi224/split"
+    save_dir: "preprocess/roi224-patch/split"
     save_name_dict:
         train: 'train_{0}.csv'  # {0} is a placeholder for fold number
         val: 'val_{0}.csv'
@@ -26,12 +26,17 @@ split:
     # indices are reset by order: train, val, test
     # it works by: `split_dataset_folds` by param `reset_split_index` in modules/monai_data_module.py
 load:
+    load_dir: "preprocess/roi224-patch/split"
+    load_name_dict:
+        train: 'train_{0}.csv'  # {0} is a placeholder for fold number
+        val: 'val_{0}.csv'
+        test: 'test.csv'
     fold: 0
     dataset: 'GridPatchDataset'
     dataset_params:
         with_coordinates: False  # if True, the batch will be a list [image, coordinate]
         patch_iter:  # PatchIterd
-            keys: ['image', 'image_slice']
+            keys: ['image']
             patch_size: [64, 64]
             overlap: 0  # if it goes wrong, try to comment `monai/data/grid_patch_sampler.py: L95`: overlap = 0
     pre_transform:
@@ -52,23 +57,18 @@ load:
             keys: ['image', 'image_slice']
             minv: 0.0
             maxv: 1.0
-    load_dir: "roi224/split"
-    load_name_dict:
-        train: 'train_{0}.csv'  # {0} is a placeholder for fold number
-        val: 'val_{0}.csv'
-        test: 'test.csv'
 loader:
     train_loader:
         shuffle: False
-        batch_size: 1024
+        batch_size: 4096
         num_workers: 4
         pin_memory: true
         persistent_workers: true
     val_loader:
         shuffle: False
         num_workers: 4
-        batch_size: 1024
+        batch_size: 2048
     test_loader:
         shuffle: False
         num_workers: 4
-        batch_size: 1024
+        batch_size: 2048
