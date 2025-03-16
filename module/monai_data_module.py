@@ -204,6 +204,13 @@ def load_data_to_monai_dataset(
     val_df = pd.read_csv(val_file, index_col=0,
                          converters={'image': lambda x: eval(x) if x.startswith('[') and x.endswith(']') else x})
 
+    # for i in range(len(train_df)):
+    #     neighbor = train_df[(train_df['patient_id'] == train_df.loc[i, 'patient_id']) &
+    #                         (train_df['label'] == train_df.loc[i, 'label']) &
+    #                         (train_df['model'] == train_df.loc[i, 'model']) &
+    #                         (train_df['number'] == (train_df.loc[i, 'number'] + 1) % 3)]
+    #     train_df.loc[i, 'neighbor_index'] = int(neighbor.index[0]) if len(neighbor) > 0 else -1
+
     # Convert DataFrame to list of dictionaries
     train_data = train_df.reset_index().to_dict(orient="records")
     val_data = val_df.reset_index().to_dict(orient="records")

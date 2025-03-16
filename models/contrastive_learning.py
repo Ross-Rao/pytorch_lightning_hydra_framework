@@ -4,8 +4,9 @@ import torch.autograd
 import torch.nn as nn
 import torch.nn.functional as F
 # local import
-from models.encoder import ResNetEncoder
+from models.encoder import ResNetEncoder, TransformerEncoder
 from models.decoder import SimpleConvDecoder
+from models.final_loss import auto_scaled_loss
 
 __all__ = ['EncoderDecoderModel', 'ModelLoss']
 
@@ -47,7 +48,8 @@ class MemoryCluster(nn.Module):
     """
     use memory cluster to calculate the instance loss and anchor loss
     """
-    def __init__(self, n_samples, npc_dim, neighbors=1, temperature=0.07, momentum=0.5, const=1e-12):
+
+    def __init__(self, n_samples, npc_dim, neighbors=1, temperature=0.07, momentum=0.5, const=0.):
         super().__init__()
         self.samples_num = n_samples
         self.npc_dim = npc_dim
@@ -108,9 +110,7 @@ class MemoryCluster(nn.Module):
             # instance loss and anchor loss
             flags = self.flag[index]
             instance_indices = index[flags < 0]
-            local_instance_neighbor_indices = local_neighbor_indices[flags < 0]
             anchor_indices = index[flags >= 0]
-            local_anchor_neighbor_indices = local_neighbor_indices[flags >= 0]
 
             # non-parametric classification using memory bank
             zn = F.normalize(zp, p=2, dim=1)
@@ -124,22 +124,38 @@ class MemoryCluster(nn.Module):
                 instance_loss = torch.tensor(0, dtype=torch.float32)
             else:
                 pred_instance = pred[flags < 0, instance_indices]
-                pred_local_neighbor = pred[flags < 0, local_instance_neighbor_indices]
-                instance_loss = -torch.log(pred_instance + pred_local_neighbor + self.const).sum() / batch_size * 2
+                if local_neighbor_indices is not None:
+                    # calculate local neighbor similarity
+                    local_instance_neighbor_indices = local_neighbor_indices[flags < 0]
+                    assert torch.all((instance_indices - local_instance_neighbor_indices) != 0)
+                    pred_local_neighbor = pred[flags < 0, local_instance_neighbor_indices]
+
+                    instance_loss = -torch.log(pred_instance + pred_local_neighbor + self.const).sum() / batch_size * 2
+                else:
+                    instance_loss = -torch.log(pred_instance + self.const).sum() / batch_size * 2
 
             if len(anchor_indices) == 0:
                 anchor_loss = torch.tensor(0, dtype=torch.float32)
             else:
-                pred_anchor = pred[flags >= 0, anchor_indices]
-                pred_local_neighbor = pred[flags >= 0, local_anchor_neighbor_indices]
-
                 # each anchor sample has neighbors
                 anchor_neighbor_indices = self.neighbors[anchor_indices]  # global index
                 # for each anchor sample, get similarity with neighbors
                 # flags >= 0 is local index for anchor
                 pred_neighbor = pred[flags >= 0, anchor_neighbor_indices]
-                anchor_loss = -torch.log(pred_anchor + pred_neighbor + pred_local_neighbor +
-                                         self.const).sum() / batch_size * 2
+                pred_anchor = pred[flags >= 0, anchor_indices]
+                if local_neighbor_indices is not None:
+                    # calculate local neighbor similarity
+                    local_anchor_neighbor_indices = local_neighbor_indices[flags >= 0]
+                    assert torch.all((anchor_indices - local_anchor_neighbor_indices) != 0)
+                    pred_local_neighbor = pred[flags >= 0, local_anchor_neighbor_indices]
+
+                    # remove local neighbor
+                    pred_neighbor[anchor_neighbor_indices == local_anchor_neighbor_indices] = 0
+
+                    anchor_loss = -torch.log(pred_anchor + pred_neighbor + pred_local_neighbor +
+                                             self.const).sum() / batch_size * 2
+                else:
+                    anchor_loss = -torch.log(pred_anchor + pred_neighbor + self.const).sum() / batch_size * 2
 
             return instance_loss, anchor_loss
 
@@ -157,6 +173,7 @@ class MemoryCluster(nn.Module):
 
 class EncoderDecoderModel(nn.Module):
     def __init__(self,
+                 stage,
                  n_classes=3,
                  encoder_in_channels=2,
                  decoder_out_channels=1,
@@ -167,8 +184,10 @@ class EncoderDecoderModel(nn.Module):
                  npc_dim=128,
                  activation='ReLU'):
         super().__init__()
+        self.stage = stage
+        self.encoder_in_channels = encoder_in_channels
 
-        self.encoder = ResNetEncoder(backbone=encoder, in_channels=encoder_in_channels, 
+        self.encoder = ResNetEncoder(backbone=encoder, in_channels=encoder_in_channels,
                                      pretrained=pretrained, freeze_all=False)
         # 5 layers will turn 2^5 = 32 larger
         self.decoder = SimpleConvDecoder(in_channels=hidden_dim, out_channels=decoder_out_channels,
@@ -176,20 +195,56 @@ class EncoderDecoderModel(nn.Module):
         self.pool = nn.AvgPool2d(kernel_size=2, stride=2)
         self.fc1 = nn.Linear(hidden_dim, npc_dim)
         self.act = getattr(nn, activation)()
-        self.fc2 = nn.Linear(hidden_dim, n_classes)
+        self.transformer = TransformerEncoder(embedding_dim=npc_dim * 2, sequence_length=3, num_layers=decoder_layers,
+                                              num_heads=8, positional_embedding='learnable')
+        self.aff = nn.Linear(npc_dim, npc_dim)
+        self.fc2 = nn.Linear(npc_dim * 2, n_classes)
 
     def forward(self, x, index, local_neighbor_indices):
+        if x.size(1) != self.encoder_in_channels:
+            b, c, h, w = x.size()
+            x = x.reshape(-1, self.encoder_in_channels, h, w)
+            if index.shape[0] != x.shape[0]:
+                flatten_index = (c * index.unsqueeze(1) + torch.arange(c).to(index.device)).reshape(-1)
+            else:
+                flatten_index = index
+            if local_neighbor_indices is None:
+                flatten_local_neighbor_indices = (c * index.unsqueeze(1) +
+                                                  torch.roll(torch.arange(c).to(index.device), 1)).reshape(-1)
+            elif local_neighbor_indices.shape[0] != x.shape[0]:
+                flatten_local_neighbor_indices = (c * local_neighbor_indices.unsqueeze(1) +
+                                                  torch.arange(c).to(index.device)).reshape(-1)
+            else:
+                flatten_local_neighbor_indices = local_neighbor_indices
+            cls, x_hat, zp, _, _ = self._forward(x, flatten_index, flatten_local_neighbor_indices)
+            cls = cls.reshape(b, c, -1)
+            x_hat = x_hat.reshape(b, c, h, w)
+            zp = zp.reshape(b, c, -1)
+            flatten_index = flatten_index.reshape(b, c)
+            flatten_local_neighbor_indices = flatten_local_neighbor_indices.reshape(b, c)
+            return cls, x_hat, zp, flatten_index, flatten_local_neighbor_indices
+        else:
+            return self._forward(x, index, local_neighbor_indices)
+
+    def _forward(self, x, index, local_neighbor_indices):
         x = self.encoder(x).view((x.size(0), -1, 2, 2))
         x_hat = self.decoder(x)
         zb = self.pool(x).squeeze()  # reshape to hidden_dim
         zp = self.act(self.fc1(zb))
-        cls = self.fc2(zb)
-        
+        if self.stage == 1:
+            cls = torch.zeros_like(index)
+        elif self.stage == 2:
+            seq = torch.cat([zp, self.aff(zp)], dim=1)
+            seq = seq.reshape(-1, 3, seq.shape[-1])
+            cls = self.fc2(self.transformer(seq))
+        else:
+            raise ValueError('stage should be 1 or 2')
         return cls, x_hat, zp, index, local_neighbor_indices
 
 
 class ModelLoss(nn.Module):
     def __init__(self,
+                 stage,
                  n_samples,
                  npc_dim=128,
                  neighbors=1,
@@ -197,35 +252,51 @@ class ModelLoss(nn.Module):
                  momentum=0.5,
                  const=1e-8):
         super().__init__()
+        self.stage = stage
         self.n_samples = n_samples
-        self.recon_loss = nn.MSELoss(reduction='mean')
+        self.recon_loss = nn.L1Loss(reduction='mean')
         self.cls_loss = nn.CrossEntropyLoss()
         self.mc = MemoryCluster(n_samples, npc_dim, neighbors, temperature, momentum, const)
-        
-    def forward(self, y_hat, y):
-        pred_cls, x_hat, zp, index, local_neighbor_indices = y_hat
-        cls, x_mid = y
 
-        if index is not None and index.max() < self.n_samples:  # training loss
-            local_neighbor_indices = index if local_neighbor_indices is None else local_neighbor_indices
-            instance_loss, anchor_loss = self.mc(zp, index, local_neighbor_indices)
-            recon_loss = self.recon_loss(x_mid, x_hat)
-            cls_loss = self.cls_loss(pred_cls, cls)
-            loss = recon_loss + instance_loss + anchor_loss + cls_loss
-            
-            loss_dt = {
-                'cls_loss': cls_loss,
-                'recon_loss': recon_loss,
-                'instance_loss': instance_loss,
-                'anchor_loss': anchor_loss
-            }
-            return loss, loss_dt
+    def forward(self, pred_cls, x_hat, zp, index, local_neighbor_indices, cls):
+        if len(index.shape) == 1:
+            return self._forward(pred_cls, x_hat, zp, index, local_neighbor_indices, cls)
         else:
+            b, c, _ = zp.shape
+            pred_cls = pred_cls.reshape(-1, pred_cls.shape[-1])
+            zp = zp.reshape(-1, zp.shape[-1])
+            index = index.reshape(-1)
+            local_neighbor_indices = local_neighbor_indices.reshape(-1)
+            cls = cls.unsqueeze(1).repeat(1, c).reshape(-1)
+            return self._forward(pred_cls, x_hat, zp, index, local_neighbor_indices, cls)
+
+    def _forward(self, pred_cls, x_hat, zp, index, local_neighbor_indices, cls):
+        if self.stage == 1:
+            if index is not None and index.max() < self.n_samples:  # training loss
+                instance_loss, anchor_loss = self.mc(zp, index, local_neighbor_indices)
+                # recon_loss = self.recon_loss(x_mid, x_hat)
+                loss_dt = {
+                    # 'cls_loss': cls_loss,
+                    # 'recon_loss': recon_loss,
+                    'instance_loss': instance_loss,
+                    'anchor_loss': anchor_loss
+                }
+                loss = auto_scaled_loss([instance_loss, anchor_loss])
+                return loss, loss_dt
+            else:
+                # recon_loss = self.recon_loss(x_mid, x_hat)
+                pred_flags = self.mc(zp, index)
+                ratio = (pred_flags >= 0).float().mean()
+                loss_dt = {
+                    # 'recon_loss': recon_loss,
+                    'anchor_ratio': ratio,
+                }
+                return 1 - ratio, loss_dt
+        elif self.stage == 2:
             cls_loss = self.cls_loss(pred_cls, cls)  # only calculate classification loss
-            pred_flags = self.mc(zp, index)
             loss_dt = {
                 'cls_loss': cls_loss,
-                'anchor_ratio': (pred_flags >= 0).float().mean(),
             }
             return cls_loss, loss_dt
-        
+        else:
+            raise ValueError('stage should be 1 or 2')

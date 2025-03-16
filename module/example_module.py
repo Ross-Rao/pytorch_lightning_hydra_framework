@@ -64,7 +64,16 @@ class ExampleModule(pl.LightningModule):
             return batch
         elif isinstance(batch, dict):
             # some attributes from (pre)transform
-            pass
+            # index, neighbor_index: UpdatePatchIndexd
+            # image_slice: DropSliced
+            index = batch.get('index', None)
+            neighbor_index = batch.get('neighbor_index', None)
+            index = index.reshape(-1) if isinstance(index, torch.Tensor) else None
+            neighbor_index = neighbor_index.long().reshape(-1) if isinstance(neighbor_index, torch.Tensor) else None
+            x = (batch['image'], index, neighbor_index)
+            # y = (batch['label'].reshape(-1), batch['image_slice'])  # and metadata
+            y = (batch['label'].reshape(-1))  # and metadata
+            return x, y
         else:
             raise ValueError('Invalid batch type')
 
@@ -76,6 +85,16 @@ class ExampleModule(pl.LightningModule):
             return batch['image'].size(0)
         else:
             raise ValueError('Invalid batch type')
+
+    def on_train_epoch_start(self, max_search_ratio=0.5, frequency=20):
+        # on_train_epoch_start may not suitable for update model parameters, maybe works?
+        # we update anchor in training_step with anchor_update_frequency
+        current_epoch = self.current_epoch
+        update_epoch = [i for i in range(0, self.trainer.max_epochs, frequency)]
+        if current_epoch in update_epoch:
+            max_epoch = self.trainer.max_epochs
+            search_ratio = current_epoch / max_epoch * max_search_ratio
+            self.criterion.mc.update_anchor(search_rate=search_ratio)
 
     def training_step(self, batch, batch_idx):
         x, y = self.get_batch(batch)
@@ -111,6 +130,11 @@ class ExampleModule(pl.LightningModule):
         x, y = self.get_batch(batch)
         y_hat = self.model(*x if isinstance(x, tuple) else x)
         self.log_general_validation_metrics(y_hat, y, "test")
+        # if 'patch_coords' in batch.keys():
+        #     self._save_reconstruction_images(images=y_hat[1], index=batch['original_index'],
+        #                                      coords=batch['patch_coords'])
+        # else:
+        #     self._save_reconstruction_images(images=y_hat[1], index=batch['index'])
 
     def log_general_validation_metrics(self, y_hat_tp, y_tp, stage):
         y_hat_tp = y_hat_tp if isinstance(y_hat_tp, tuple) else (y_hat_tp,)
@@ -118,7 +142,10 @@ class ExampleModule(pl.LightningModule):
         # ensure matched y and y_hat is same
         # zip will stop at the shortest length
         for y_hat, y in zip(y_hat_tp, y_tp):
-            if len(y_hat.shape) == 2:
+            if len(y_hat.shape) == 2 or len(y_hat.shape) == 3:
+                if len(y_hat.shape) == 3:
+                    y_hat = y_hat.reshape(-1, y_hat.shape[-1])
+                    y = y.unsqueeze(1).repeat(1, 3).reshape(-1)
                 if y_hat.shape[1] == 1:  # Regression task
                     self.log_dict(self._regression_metrics(y_hat, y, stage), batch_size=y.size(0))
                     logger.info(f"evaluation: {self._regression_metrics(y_hat, y, stage)}")
