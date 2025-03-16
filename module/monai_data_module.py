@@ -68,6 +68,7 @@ def split_dataset_folds(
         df: pd.DataFrame,
         n_folds: int,
         test_split_ratio: float,
+        split_cols: list = None,
         shuffle: bool = True,
         seed: int = 42,
         save_dir: str = "./",
@@ -81,6 +82,7 @@ def split_dataset_folds(
         df (pd.DataFrame): The input DataFrame to be split.
         n_folds (int): Number of folds for cross-validation.
         test_split_ratio (float): Ratio of the dataset to be used as the test set.
+        split_cols (list, optional): Columns to consider when splitting the dataset. Defaults to None.
         shuffle (bool, optional): Whether to shuffle the data before splitting. Defaults to True.
         seed (int, optional): Random seed for reproducibility. Defaults to 42.
         save_dir (str, optional): Directory to save the split datasets. Defaults to "./".
@@ -111,7 +113,16 @@ def split_dataset_folds(
             "save_name_dict must have keys: train, val, test"
 
     # Split test set
-    train_val_df, test_df = train_test_split(df, test_size=test_split_ratio, shuffle=shuffle, random_state=seed)
+    if split_cols is not None and len(split_cols) > 0:
+        group_keys = df.groupby(split_cols).groups.keys()
+        group_keys = [key if isinstance(key, tuple) else (key,) for key in group_keys]
+        train_keys, test_keys = train_test_split(group_keys, test_size=test_split_ratio,
+                                                 shuffle=shuffle, random_state=seed)
+        train_val_df = df[df[split_cols].apply(tuple, axis=1).isin(train_keys)]
+        test_df = df[df[split_cols].apply(tuple, axis=1).isin(test_keys)]
+    else:
+        train_val_df, test_df = train_test_split(df, test_size=test_split_ratio,
+                                                 shuffle=shuffle, random_state=seed)
 
     # Save test set
     if reset_split_index:
@@ -121,10 +132,18 @@ def split_dataset_folds(
 
     # Split train and validation sets using KFold
     kf = KFold(n_splits=n_folds, shuffle=shuffle, random_state=seed)
-
-    for fold, (train_index, val_index) in enumerate(kf.split(train_val_df)):
-        train_df = train_val_df.iloc[train_index]
-        val_df = train_val_df.iloc[val_index]
+    if split_cols is not None and len(split_cols) > 0:
+        train_val = train_val_df.groupby(split_cols).groups.keys()
+        train_val = [key if isinstance(key, tuple) else (key,) for key in train_val]
+    else:
+        train_val = train_val_df
+    for fold, (train_index, val_index) in enumerate(kf.split(train_val)):
+        if split_cols is not None and len(split_cols) > 0:
+            train_df = df[df[split_cols].apply(tuple, axis=1).isin([train_val[i] for i in train_index])]
+            val_df = df[df[split_cols].apply(tuple, axis=1).isin([train_val[i] for i in val_index])]
+        else:
+            train_df = train_val.iloc[train_index]
+            val_df = train_val.iloc[val_index]
 
         if reset_split_index:
             train_df.reset_index(drop=True, inplace=True)
