@@ -80,7 +80,9 @@ class ExampleModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = self.get_batch(batch)
         y_hat = self.model(*x if isinstance(x, tuple) else x)
-        loss, loss_dt = self.criterion(y_hat, y)
+        # be sure that y_hat params first and y params later in your criterion function
+        criterion_params = (y_hat if isinstance(y_hat, tuple) else (y_hat, )) + (y if isinstance(y, tuple) else (y,))
+        loss, loss_dt = self.criterion(*criterion_params)
         loss_dt = {f'train/{k}': float(v) for k, v in loss_dt.items()}
         logger.info(f"train epoch: {self.current_epoch}, step: {batch_idx},\n"
                     f"loss: {float(loss)} \n"
@@ -93,7 +95,9 @@ class ExampleModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = self.get_batch(batch)
         y_hat = self.model(*x if isinstance(x, tuple) else x)
-        loss, loss_dt = self.criterion(y_hat, y)
+        # be sure that y_hat params first and y params later in your criterion function
+        criterion_params = (y_hat if isinstance(y_hat, tuple) else (y_hat, )) + (y if isinstance(y, tuple) else (y,))
+        loss, loss_dt = self.criterion(*criterion_params)
         loss_dt = {f'val/{k}': float(v) for k, v in loss_dt.items()}
         logger.info(f"val epoch: {self.current_epoch}, step: {batch_idx},\n"
                     f"loss: {float(loss)} \n"
@@ -109,6 +113,8 @@ class ExampleModule(pl.LightningModule):
         self.log_general_validation_metrics(y_hat, y, "test")
 
     def log_general_validation_metrics(self, y_hat_tp, y_tp, stage):
+        y_hat_tp = y_hat_tp if isinstance(y_hat_tp, tuple) else (y_hat_tp,)
+        y_tp = y_tp if isinstance(y_tp, tuple) else (y_tp,)
         # ensure matched y and y_hat is same
         # zip will stop at the shortest length
         for y_hat, y in zip(y_hat_tp, y_tp):
