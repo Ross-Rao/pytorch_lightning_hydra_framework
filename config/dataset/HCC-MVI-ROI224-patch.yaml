@@ -38,15 +38,15 @@ load:
             keys: ['image']
         StackImaged:
             keys: ['image']
-        DropSliced:
-            key: 'image'
-            slice_idx: 1  # create a new key 'image_slice' with the slice index
         ToTensord:
-            keys: ['image', 'image_slice']
+            keys: ['image']
     transform:
         UpdatePatchIndexd:
             key: 'index'
             overlap: 0
+        DropSliced:
+            key: 'image'
+            slice_idx: 1  # create a new key 'image_slice' with the slice index
         ScaleIntensityd:
             keys: ['image', 'image_slice']
             minv: 0.0
