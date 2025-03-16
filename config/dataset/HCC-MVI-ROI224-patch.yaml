@@ -2,13 +2,15 @@
 
 metadata:
     data_dir: '${oc.env:DATASET_LOCATION, ./data}/MVI数据/ROI_224'
+    # parser is used to parse the dataset directory
+    # each key-value pair will be a field in the DataFrame
     parser:
-        image: "lambda path: path.endswith('.jpg')"
-        label: "lambda path: int(os.path.basename(path).split('.')[0].split('_')[0][-1])"
+        image: "lambda path: path.endswith('.jpg')"  # `image` must be included
+        label: "lambda path: int(os.path.basename(path).split('.')[0].split('_')[0][-1])"  # M0: 0, M1: 1, M2: 2
         patient_id: "lambda path: os.path.basename(path).split('.')[0].split('_')[0][:2]"
         model: "lambda path: os.path.basename(path).split('.')[0].split('_')[1]"
         number: "lambda path: os.path.basename(path).split('.')[0].split('_')[2]"
-    group_by: ['label', 'patient_id', 'model']
+    group_by: ['label', 'patient_id', 'model']  # groupby op will stack the `image` with the same group
 split:
     test_split_ratio: 0.1
     n_folds: 10
@@ -20,14 +22,8 @@ split:
         val: 'val_{0}.csv'
         test: 'test.csv'
     reset_split_index: True  # matters
-    # the memory bank should only store train samples
     # indices are reset by order: train, val, test
-    # so if input index < model_param.n_samples, it should be train samples
-    # if input index > model_param.n_samples, it should be val or internal test samples
-    # if input index is None, it should be external test samples
-    # it works by:
-    # 1. `split_dataset_folds` by param `reset_split_index` in modules/monai_data_module.py
-    # 2. `IndexTransformd` in utils/custom_transforms.py
+    # it works by: `split_dataset_folds` by param `reset_split_index` in modules/monai_data_module.py
 load:
     fold: 0
     dataset: 'GridPatchDataset'
@@ -40,9 +36,6 @@ load:
     pre_transform:
         LoadImaged:
             keys: ['image']
-        Resized:
-            keys: ['image']
-            spatial_size: [256, 256]
         StackImaged:
             keys: ['image']
         DropSliced:
@@ -53,9 +46,7 @@ load:
     transform:
         UpdatePatchIndexd:
             key: 'index'
-            overlap: 0.5
-#        CreateCopyd:
-#            keys: ['image_slice']  # create 'image_slice_copy'
+            overlap: 0
         ScaleIntensityd:
             keys: ['image', 'image_slice']
             minv: 0.0
@@ -80,8 +71,3 @@ loader:
         shuffle: False
         num_workers: 4
         batch_size: 1024
-
-
-#  Normalize:
-#    mean: [0.485, 0.456, 0.406]
-#    std: [0.229, 0.224, 0.225]
