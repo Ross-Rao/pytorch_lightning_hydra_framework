@@ -17,7 +17,7 @@ split:
     n_folds: 10
     shuffle: true
     seed: 42
-    save_dir: "preprocess/roi224-patch/split"
+    save_dir: "preprocess/roi224-patch-stack/split"
     save_name_dict:
         train: 'train_{0}.csv'  # {0} is a placeholder for fold number
         val: 'val_{0}.csv'
@@ -26,7 +26,7 @@ split:
     # indices are reset by order: train, val, test
     # it works by: `split_dataset_folds` by param `reset_split_index` in modules/monai_data_module.py
 load:
-    load_dir: "preprocess/roi224-patch/split"
+    load_dir: "preprocess/roi224-patch-stack/split"
     load_name_dict:
         train: 'train_{0}.csv'  # {0} is a placeholder for fold number
         val: 'val_{0}.csv'
