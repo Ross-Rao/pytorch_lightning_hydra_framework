@@ -1,7 +1,7 @@
 # python import
 import os
 # package import
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 from torchvision.datasets import MNIST
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor

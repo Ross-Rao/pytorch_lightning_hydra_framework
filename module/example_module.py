@@ -2,7 +2,7 @@
 import logging
 # package import
 import torch
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 from torch.nn.functional import l1_loss, mse_loss
 from torchmetrics.functional.classification import auroc, accuracy, precision, recall, f1_score
 from torchmetrics.image import (PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure,

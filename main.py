@@ -6,10 +6,10 @@ from datetime import datetime
 # package import
 import hydra
 import pandas as pd
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
-from pytorch_lightning.loggers import TensorBoardLogger
+from lightning.pytorch.loggers import TensorBoardLogger
 # local import
 from module.mnist_data_module import MNISTDataModule
 from module.example_module import ExampleModule
