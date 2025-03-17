@@ -24,19 +24,15 @@ hydra:
       detailed:
         format: '[%(asctime)s][%(levelname)s|%(module)s] %(message)s (%(pathname)s:%(funcName)s#%(lineno)d)'
     handlers:
-      stream:
-        class: logging.StreamHandler
-        formatter: simple
       file:
         class: logging.FileHandler
         formatter: detailed
         filename: '${experiment_location}/${now:%Y-%m-%d_%H-%M-%S}_${hydra.job.name}/job.log'
-        mode: 'a'
     root:
       level: INFO
-      handlers: [stream, file]
+      handlers: [file]
     loggers:
       hydra:
         level: INFO
-        handlers: [stream, file]
+        handlers: [file]
         propagate: false

@@ -24,7 +24,7 @@ callbacks:  # inline definition of callbacks, don't change the name
     TQDMProgressBar:
         refresh_rate: 1
 trainer:  # inline definition of trainer, don't change the name
-    max_epochs:
+    max_epochs: 100
     accelerator: 'gpu'
     devices: 1
     check_val_every_n_epoch: 2
@@ -32,7 +32,7 @@ trainer:  # inline definition of trainer, don't change the name
 
 # module settings: used in module/example_module.py
 criterion:
-    criterion: ''
+    criterion: 'CrossEntropyLoss'
     criterion_params:
 optimizer:
     optimizer: Adam
@@ -40,8 +40,10 @@ optimizer:
         lr: 1e-3
         betas: [0.9, 0.999]
 model:
-    model: ""
+    model: "ResNet18"
     model_params:
+        in_channels: 1
+        out_features: 10
 
 
 #lr_scheduler:

@@ -11,6 +11,7 @@ from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.loggers import TensorBoardLogger
 # local import
+from module.mnist_data_module import MNISTDataModule
 from module.example_module import ExampleModule
 from module.monai_data_module import MonaiDataModule
 from utils import callbacks
@@ -67,12 +68,12 @@ def main(cfg: DictConfig):
     logger.info("trainer built.")
 
     # set seed
-    seed = cfg.get("dataset").get("split").get("seed")
+    seed = cfg.get("dataset", {}).get("split", {}).get("seed", 42)
     pl.seed_everything(seed, workers=True)
 
     # build data Module
     dataset_config = cfg.get("dataset")
-    datamodule = MonaiDataModule(**dataset_config)
+    datamodule = MonaiDataModule(**dataset_config) if dataset_config is not None else MNISTDataModule()
     logger.info("data module built.")
 
     # build model
