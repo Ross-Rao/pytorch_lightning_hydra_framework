@@ -2,7 +2,7 @@
 import logging
 # package import
 import torch
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 from torch.nn.functional import l1_loss, mse_loss
 from torchmetrics.functional.classification import auroc, accuracy, precision, recall, f1_score
 from torchmetrics.image import (PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure,
@@ -60,7 +60,7 @@ class ExampleModule(pl.LightningModule):
 
     @staticmethod
     def get_batch(batch):
-        if isinstance(batch, tuple):
+        if isinstance(batch, list):
             return batch
         elif isinstance(batch, dict):
             # some attributes from (pre)transform
@@ -79,7 +79,7 @@ class ExampleModule(pl.LightningModule):
 
     @staticmethod
     def get_batch_size(batch):
-        if isinstance(batch, tuple):
+        if isinstance(batch, list):
             return batch[0].size(0)
         elif isinstance(batch, dict):
             return batch['image'].size(0)
@@ -98,37 +98,50 @@ class ExampleModule(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = self.get_batch(batch)
-        y_hat = self.model(*x if isinstance(x, tuple) else x)
+        model_params = x if isinstance(x, tuple) else (x, )
+        y_hat = self.model(*model_params)
+        # self.log_general_validation_metrics(y_hat, y, "train")  # not necessary, only debug
+
         # be sure that y_hat params first and y params later in your criterion function
         criterion_params = (y_hat if isinstance(y_hat, tuple) else (y_hat, )) + (y if isinstance(y, tuple) else (y,))
-        loss, loss_dt = self.criterion(*criterion_params)
-        loss_dt = {f'train/{k}': float(v) for k, v in loss_dt.items()}
-        logger.info(f"train epoch: {self.current_epoch}, step: {batch_idx},\n"
-                    f"loss: {float(loss)} \n"
-                    f"loss_dt: {loss_dt}")
-        self.log_dict(loss_dt, batch_size=self.get_batch_size(batch))
-        # self.log_general_validation_metrics(y_hat, y, "train")  # not necessary, only debug
-        self.log("train_loss", loss)  # train_loss is the key for callback
+        loss = self.criterion(*criterion_params)
+        loss, loss_dt = loss if isinstance(loss, tuple) else (loss, {})
+        assert isinstance(loss, torch.Tensor), "loss must be a tensor"
+        assert isinstance(loss_dt, dict), "loss_dt must be a dict"
+        if loss_dt:
+            loss_dt = {f'train/{k}': float(v) for k, v in loss_dt.items()}
+            logger.info(f"train epoch: {self.current_epoch}, step: {batch_idx},\n"
+                        f"loss_dt: {loss_dt}")
+            self.log_dict(loss_dt, batch_size=self.get_batch_size(batch), prog_bar=True)
+        self.log("train_loss", loss, prog_bar=True)  # val_loss is the key for callback
+        logger.info(f"train_loss: {float(loss)}")
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = self.get_batch(batch)
-        y_hat = self.model(*x if isinstance(x, tuple) else x)
+        model_params = x if isinstance(x, tuple) else (x, )
+        y_hat = self.model(*model_params)
+        self.log_general_validation_metrics(y_hat, y, "val")
+
         # be sure that y_hat params first and y params later in your criterion function
         criterion_params = (y_hat if isinstance(y_hat, tuple) else (y_hat, )) + (y if isinstance(y, tuple) else (y,))
-        loss, loss_dt = self.criterion(*criterion_params)
-        loss_dt = {f'val/{k}': float(v) for k, v in loss_dt.items()}
-        logger.info(f"val epoch: {self.current_epoch}, step: {batch_idx},\n"
-                    f"loss: {float(loss)} \n"
-                    f"loss_dt: {loss_dt}")
-        self.log_dict(loss_dt, batch_size=self.get_batch_size(batch))
-        self.log_general_validation_metrics(y_hat, y, "val")
-        self.log("val_loss", loss)  # val_loss is the key for callback
+        loss = self.criterion(*criterion_params)
+        loss, loss_dt = loss if isinstance(loss, tuple) else (loss, {})
+        assert isinstance(loss, torch.Tensor), "loss must be a tensor"
+        assert isinstance(loss_dt, dict), "loss_dt must be a dict"
+        if loss_dt:
+            loss_dt = {f'val/{k}': float(v) for k, v in loss_dt.items()}
+            logger.info(f"val epoch: {self.current_epoch}, step: {batch_idx},\n"
+                        f"loss_dt: {loss_dt}")
+            self.log_dict(loss_dt, batch_size=self.get_batch_size(batch), prog_bar=True)
+        self.log("val_loss", loss, prog_bar=True)  # val_loss is the key for callback
+        logger.info(f"val_loss: {float(loss)}")
         return loss
 
     def test_step(self, batch, batch_idx):
         x, y = self.get_batch(batch)
-        y_hat = self.model(*x if isinstance(x, tuple) else x)
+        model_params = x if isinstance(x, tuple) else (x, )
+        y_hat = self.model(*model_params)
         self.log_general_validation_metrics(y_hat, y, "test")
         # if 'patch_coords' in batch.keys():
         #     self._save_reconstruction_images(images=y_hat[1], index=batch['original_index'],

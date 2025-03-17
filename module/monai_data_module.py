@@ -5,7 +5,7 @@ from functools import partial
 # package import
 import monai
 import pandas as pd
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split, KFold
 from monai import transforms
