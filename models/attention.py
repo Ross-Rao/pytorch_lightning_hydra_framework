@@ -86,7 +86,9 @@ class Attention(nn.Module):
         self.attention_dropout = nn.Dropout(attention_dropout)
         self.projection_dropout = nn.Dropout(projection_dropout)
 
-    def forward(self, q, kv):
+    def forward(self, q, kv=None):
+        if kv is None:
+            kv = q
         (b, n, c), h = q.shape, self.num_heads
 
         # (b, n, c) -> (b, h, n, e)
