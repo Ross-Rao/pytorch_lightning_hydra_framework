@@ -75,7 +75,12 @@ def main(cfg: DictConfig):
 
     # build data Module
     dataset_config = cfg.get("dataset")
-    datamodule = MonaiDataModule(**dataset_config) if dataset_config is not None else MNISTDataModule()
+    if dataset_config is None:
+        datamodule = MNISTDataModule()
+    else:
+        metadata_cfg, split_cfg = dataset_config.get("metadata"), dataset_config.get("split")
+        load_cfg, loader_cfg = dataset_config.get("load"), dataset_config.get("loader")
+        datamodule = MonaiDataModule(**metadata_cfg, **split_cfg, **load_cfg, **loader_cfg)
     logger.info("data module built.")
 
     # build model
