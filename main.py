@@ -1,4 +1,4 @@
-# local import
+# python import
 import os
 import sys
 import logging
