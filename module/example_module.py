@@ -168,9 +168,9 @@ class ExampleModule(pl.LightningModule):
         x, y = self.get_batch(batch)
         model_params = x if isinstance(x, tuple) else (x,)
         y_hat = self.model(*model_params)
-        # kwargs used for saving images
+        # `patch_coords` comes from `GridPatchDataset`, used for saving images
         self._update_metrics(y_hat, y, "test",
-                             index=batch.get('index', None), coords=batch.get('coords', None))
+                             index=batch.get('index', None), coords=batch.get('patch_coords', None))
 
     # def on_train_epoch_end(self):
     #     # not necessary, only debug
