@@ -1,4 +1,4 @@
-# local import
+# python import
 import os
 import sys
 import logging
@@ -16,6 +16,7 @@ from module.example_module import ExampleModule
 from module.monai_data_module import MonaiDataModule
 from utils import callbacks
 from utils.util import get_multi_attr
+from utils.log import log_exception
 
 # 获取 logger
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
     config_path=os.getenv('CONFIGS_LOCATION', 'config'),
     config_name="config",
 )
+@log_exception(logger=logger)
 def main(cfg: DictConfig):
     """
     Main function to run the training and testing pipeline using Hydra for configuration management.
@@ -80,7 +82,7 @@ def main(cfg: DictConfig):
     else:
         metadata_cfg, split_cfg = dataset_config.get("metadata"), dataset_config.get("split")
         load_cfg, loader_cfg = dataset_config.get("load"), dataset_config.get("loader")
-        datamodule = MonaiDataModule(**metadata_cfg, **split_cfg, **load_cfg, **loader_cfg)
+        datamodule = MonaiDataModule(metadata_cfg, split_cfg, load_cfg, loader_cfg)
     logger.info("data module built.")
 
     # build model

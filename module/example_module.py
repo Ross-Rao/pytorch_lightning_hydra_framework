@@ -113,7 +113,8 @@ class ExampleModule(pl.LightningModule):
             logger.info(f"train epoch: {self.current_epoch}, step: {batch_idx},\n"
                         f"loss_dt: {loss_dt}")
             self.log_dict(loss_dt, batch_size=self.get_batch_size(batch), prog_bar=True)
-        self.log("train_loss", loss, prog_bar=True)  # val_loss is the key for callback
+        self.log("train_loss", loss,
+                 batch_size=self.get_batch_size(batch), prog_bar=True)  # val_loss is the key for callback
         logger.info(f"train_loss: {float(loss)}")
         return loss
 
@@ -134,7 +135,8 @@ class ExampleModule(pl.LightningModule):
             logger.info(f"val epoch: {self.current_epoch}, step: {batch_idx},\n"
                         f"loss_dt: {loss_dt}")
             self.log_dict(loss_dt, batch_size=self.get_batch_size(batch), prog_bar=True)
-        self.log("val_loss", loss, prog_bar=True)  # val_loss is the key for callback
+        self.log("val_loss", loss,
+                 batch_size=self.get_batch_size(batch), prog_bar=True)  # val_loss is the key for callback
         logger.info(f"val_loss: {float(loss)}")
         return loss
 
