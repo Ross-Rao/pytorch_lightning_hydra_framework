@@ -137,7 +137,6 @@ class ExampleModule(pl.LightningModule):
 
     def on_train_batch_end(self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int) -> None:
         # log step loss
-        # train/loss is the key for callback
         loss_dt = {f'train/{k}': float(v) for k, v in outputs.items()}
         self.log_dict(loss_dt, batch_size=self.get_batch_size(batch), prog_bar=True)
 
@@ -156,7 +155,6 @@ class ExampleModule(pl.LightningModule):
         self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         # log step loss
-        # val/loss is the key for callback
         outputs = {'loss': outputs} if isinstance(outputs, torch.Tensor) else outputs
         loss_dt = {f'val/{k}': float(v) for k, v in outputs.items()}
         self.log_dict(loss_dt, batch_size=self.get_batch_size(batch), prog_bar=True)
@@ -173,6 +171,8 @@ class ExampleModule(pl.LightningModule):
         self._update_metrics(y_hat, y, "test", **extra_params)
 
     def on_train_epoch_end(self):
+        train_loss = self.trainer.callback_metrics.get('train/loss')
+        logger.info(f"Epoch {self.current_epoch} - train_loss: {train_loss}")  # print train loss to log file
         # not necessary, only debug
         for metrics_dict in [self.cls_metrics['train'], self.reg_metrics['train'], self.recon_metrics['train']]:
             for metric_name, metric in metrics_dict.items():
@@ -183,6 +183,8 @@ class ExampleModule(pl.LightningModule):
                     metric.reset()
 
     def on_validation_epoch_end(self):
+        val_loss = self.trainer.callback_metrics.get('val/loss')
+        self.log('val_loss', val_loss)   # val_loss is the key for callback
         for metrics_dict in [self.cls_metrics['val'], self.reg_metrics['val'], self.recon_metrics['val']]:
             for metric_name, metric in metrics_dict.items():
                 if metric.update_count > 0:
