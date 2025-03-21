@@ -54,6 +54,6 @@ model:
 #        patience: 10
 #        min_lr: 1e-6
 #    lr_scheduler_other_params:
-#        monitor: "Error/Val_total"
+#        monitor: "train_loss"
 #        interval: "epoch"
 #        frequency: 1

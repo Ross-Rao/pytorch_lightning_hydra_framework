@@ -172,6 +172,7 @@ class ExampleModule(pl.LightningModule):
 
     def on_train_epoch_end(self):
         train_loss = self.trainer.callback_metrics.get('train/loss')
+        self.log('train_loss', train_loss)   # train_loss is the key for callback
         logger.info(f"Epoch {self.current_epoch} - train_loss: {train_loss}")  # print train loss to log file
         # not necessary, only debug
         for metrics_dict in [self.cls_metrics['train'], self.reg_metrics['train'], self.recon_metrics['train']]:
