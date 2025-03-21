@@ -55,7 +55,7 @@ class ExampleModule(pl.LightningModule):
         # metrics
         n_cls = model_params.get('num_classes', model_params.get('out_features', model_params.get('out_channels', 10)))
         multi_cls_param = dict(average='macro', task='multiclass', num_classes=n_cls)
-        self.confusion_matrix = ConfusionMatrix(num_classes=n_cls, task='multiclass')
+        self.confusion_matrix = ConfusionMatrix(num_classes=n_cls, task='multiclass').eval()
         self._train_cls_metrics = MetricCollection({
             "accuracy": Accuracy(**multi_cls_param),
             "precision": Precision(**multi_cls_param),
@@ -74,12 +74,12 @@ class ExampleModule(pl.LightningModule):
             "mae": MeanAbsoluteError(),
             "mse": MeanSquaredError(),
         }, prefix="train/")
-        self._val_cls_metrics = self._train_cls_metrics.clone(prefix="val/")
-        self._val_recon_metrics = self._train_recon_metrics.clone(prefix="val/")
-        self._val_reg_metrics = self._train_reg_metrics.clone(prefix="val/")
-        self._test_cls_metrics = self._train_cls_metrics.clone(prefix="test/")
-        self._test_recon_metrics = self._train_recon_metrics.clone(prefix="test/")
-        self._test_reg_metrics = self._train_reg_metrics.clone(prefix="test/")
+        self._val_cls_metrics = self._train_cls_metrics.clone(prefix="val/").eval()
+        self._val_recon_metrics = self._train_recon_metrics.clone(prefix="val/").eval()
+        self._val_reg_metrics = self._train_reg_metrics.clone(prefix="val/").eval()
+        self._test_cls_metrics = self._train_cls_metrics.clone(prefix="test/").eval()
+        self._test_recon_metrics = self._train_recon_metrics.clone(prefix="test/").eval()
+        self._test_reg_metrics = self._train_reg_metrics.clone(prefix="test/").eval()
         self.cls_metrics = {
             'train': self._train_cls_metrics,
             'val': self._val_cls_metrics,
