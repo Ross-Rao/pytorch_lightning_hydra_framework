@@ -1,8 +1,10 @@
 # python import
 import logging
+from typing import Any
 # package import
 import torch
 import lightning.pytorch as pl
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torchmetrics import (Accuracy, Precision, Recall, F1Score, AUROC, MeanAbsoluteError, MeanSquaredError,
                           ConfusionMatrix, MetricCollection)
 from torchmetrics.image import (PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure,
@@ -131,17 +133,13 @@ class ExampleModule(pl.LightningModule):
         # be sure that y_hat params first and y params later in your criterion function
         criterion_params = (y_hat if isinstance(y_hat, tuple) else (y_hat,)) + (y if isinstance(y, tuple) else (y,))
         loss = self.criterion(*criterion_params)
-        loss, loss_dt = loss if isinstance(loss, tuple) else (loss, {})
-        assert isinstance(loss, torch.Tensor), "loss must be a tensor"
-        assert isinstance(loss_dt, dict), "loss_dt must be a dict"
-
-        # log loss
-        if loss_dt:
-            loss_dt = {f'train/{k}': float(v) for k, v in loss_dt.items()}
-            self.log_dict(loss_dt, batch_size=self.get_batch_size(batch), prog_bar=True)
-        self.log("train_loss", loss,
-                 batch_size=self.get_batch_size(batch), prog_bar=True)  # val_loss is the key for callback
         return loss
+
+    def on_train_batch_end(self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int) -> None:
+        # log step loss
+        # train/loss is the key for callback
+        loss_dt = {f'train/{k}': float(v) for k, v in outputs.items()}
+        self.log_dict(loss_dt, batch_size=self.get_batch_size(batch), prog_bar=True)
 
     def validation_step(self, batch, batch_idx):
         x, y = self.get_batch(batch)
@@ -152,34 +150,37 @@ class ExampleModule(pl.LightningModule):
         # be sure that y_hat params first and y params later in your criterion function
         criterion_params = (y_hat if isinstance(y_hat, tuple) else (y_hat,)) + (y if isinstance(y, tuple) else (y,))
         loss = self.criterion(*criterion_params)
-        loss, loss_dt = loss if isinstance(loss, tuple) else (loss, {})
-        assert isinstance(loss, torch.Tensor), "loss must be a tensor"
-        assert isinstance(loss_dt, dict), "loss_dt must be a dict"
-
-        # log loss
-        if loss_dt:
-            loss_dt = {f'val/{k}': float(v) for k, v in loss_dt.items()}
-            self.log_dict(loss_dt, batch_size=self.get_batch_size(batch), prog_bar=True)
-        self.log("val_loss", loss,
-                 batch_size=self.get_batch_size(batch), prog_bar=True)  # val_loss is the key for callback
         return loss
+
+    def on_validation_batch_end(
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        # log step loss
+        # val/loss is the key for callback
+        outputs = {'loss': outputs} if isinstance(outputs, torch.Tensor) else outputs
+        loss_dt = {f'val/{k}': float(v) for k, v in outputs.items()}
+        self.log_dict(loss_dt, batch_size=self.get_batch_size(batch), prog_bar=True)
 
     def test_step(self, batch, batch_idx):
         x, y = self.get_batch(batch)
         model_params = x if isinstance(x, tuple) else (x,)
         y_hat = self.model(*model_params)
         # `patch_coords` comes from `GridPatchDataset`, used for saving images
-        self._update_metrics(y_hat, y, "test",
-                             index=batch.get('index', None), coords=batch.get('patch_coords', None))
+        if isinstance(batch, dict):
+            extra_params = {'index': batch.get('index', None), 'coords': batch.get('patch_coords', None)}
+        else:
+            extra_params = {}
+        self._update_metrics(y_hat, y, "test", **extra_params)
 
-    # def on_train_epoch_end(self):
-    #     # not necessary, only debug
-    #     for metrics_dict in [self.cls_metrics['train'], self.reg_metrics['train'], self.recon_metrics['train']]:
-    #         for metric_name, metric in metrics_dict.items():
-    #             if metric.update_count > 0:
-    #                 res = metric.compute()
-    #                 self.log(metric_name, res, prog_bar=True)
-    #                 metric.reset()
+    def on_train_epoch_end(self):
+        # not necessary, only debug
+        for metrics_dict in [self.cls_metrics['train'], self.reg_metrics['train'], self.recon_metrics['train']]:
+            for metric_name, metric in metrics_dict.items():
+                # re-comment `update_metrics` in training_step if you want to use this
+                if metric.update_count > 0:
+                    res = metric.compute()
+                    self.log(metric_name, res, prog_bar=True)
+                    metric.reset()
 
     def on_validation_epoch_end(self):
         for metrics_dict in [self.cls_metrics['val'], self.reg_metrics['val'], self.recon_metrics['val']]:
@@ -252,4 +253,3 @@ class ExampleModule(pl.LightningModule):
                 metric.update(y_hat, y)
         # 单独更新lpips
         self.recon_metrics[stage]["lpips"].update(y_hat_lpips, y_lpips)
-
