@@ -96,10 +96,10 @@ def main(cfg: DictConfig):
     logger.info("training finished.")
 
     result = trainer.test(model, datamodule)
-    pd.DataFrame(result).to_csv(os.path.join(work_dir, 'test_result.csv'))
+    pd.DataFrame(result).to_csv(os.path.join(trainer.logger.log_dir, 'test_result.csv'))
 
     result = trainer.test(model, datamodule, ckpt_path="best")
-    pd.DataFrame(result).to_csv(os.path.join(work_dir, 'best_result.csv'))
+    pd.DataFrame(result).to_csv(os.path.join(trainer.logger.log_dir, 'best_result.csv'))
     # trainer.reset_train_dataloader()  # hydra will not reset dataloader automatically
     # trainer.reset_val_dataloader()  # if you use multirun, you need to reset dataloader manually
 
