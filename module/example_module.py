@@ -101,7 +101,7 @@ class ExampleModule(pl.LightningModule):
         set optimizer and lr_scheduler(optional)
         """
         if self.lr_scheduler is not None:
-            return [self.optimizer], [self.scheduler]
+            return [self.optimizer], [self.lr_scheduler]
         else:
             return self.optimizer
 
