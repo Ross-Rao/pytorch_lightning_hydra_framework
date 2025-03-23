@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split, KFold
 from monai import transforms
 from monai.data import PatchIterd
 # local import
-from utils import custom_transforms
+from utils import transforms as custom_transforms
 from utils.util import get_multi_attr
 
 logger = logging.getLogger(__name__)
