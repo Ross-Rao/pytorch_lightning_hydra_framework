@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 # package import
 import hydra
+import torch
 import pandas as pd
 import lightning.pytorch as pl
 from hydra.core.hydra_config import HydraConfig
@@ -59,6 +60,8 @@ def main(cfg: DictConfig):
     # set seed
     seed = cfg.get("dataset", {}).get("split", {}).get("seed", 42)
     pl.seed_everything(seed, workers=True)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     # build trainer
     tb_logger = TensorBoardLogger(save_dir=work_dir)
