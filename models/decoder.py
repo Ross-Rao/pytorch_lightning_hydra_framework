@@ -17,7 +17,8 @@ class SimpleConvDecoder(nn.Module):
         torch.Size([1, 3, 128, 128])
         >>> y.sum().backward()
     """
-    def __init__(self, in_channels, out_channels, layers, activation='ReLU', mode='bicubic', align_corners=False):
+    def __init__(self, in_channels, out_channels, layers, activation='ReLU', mode='nearest', align_corners=False):
+        # mode non 'nearest' might import uncertain behavior
         super().__init__()
         assert layers > 0 and in_channels > out_channels * 2 ** layers
 
@@ -31,7 +32,10 @@ class SimpleConvDecoder(nn.Module):
                 kernel_size, padding = 5, 2
             layers_lt.append(nn.Conv2d(conv_in_channels, conv_out_channels, kernel_size=kernel_size, padding=padding)),
             layers_lt.append(getattr(nn, activation)()),  # ReLU, etc.
-            layers_lt.append(nn.Upsample(scale_factor=2, mode=mode, align_corners=align_corners))
+            if mode != 'nearest':
+                layers_lt.append(nn.Upsample(scale_factor=2, mode=mode, align_corners=align_corners))
+            else:
+                layers_lt.append(nn.Upsample(scale_factor=2, mode=mode))
 
         penultimate_channels = in_channels // 2 ** layers
         if penultimate_channels != out_channels:
