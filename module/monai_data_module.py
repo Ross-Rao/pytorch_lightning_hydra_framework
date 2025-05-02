@@ -204,13 +204,6 @@ def load_data_to_monai_dataset(
     val_df = pd.read_csv(val_file, index_col=0,
                          converters={'image': lambda x: eval(x) if x.startswith('[') and x.endswith(']') else x})
 
-    # for i in range(len(train_df)):
-    #     neighbor = train_df[(train_df['patient_id'] == train_df.loc[i, 'patient_id']) &
-    #                         (train_df['label'] == train_df.loc[i, 'label']) &
-    #                         (train_df['model'] == train_df.loc[i, 'model']) &
-    #                         (train_df['number'] == (train_df.loc[i, 'number'] + 1) % 3)]
-    #     train_df.loc[i, 'neighbor_index'] = int(neighbor.index[0]) if len(neighbor) > 0 else -1
-
     # Convert DataFrame to list of dictionaries
     train_data = train_df.reset_index().to_dict(orient="records")
     val_data = val_df.reset_index().to_dict(orient="records")
@@ -256,16 +249,57 @@ class MonaiDataModule(pl.LightningDataModule):
                  metadata: dict,
                  split: dict,
                  load: dict,
-                 loader: dict):
+                 loader: dict,
+                 # --------- used for mix up ---------
+                 num_classes: int = 2
+                 # --------- used for mix up ---------
+                 ):
         super().__init__()
         self.metadata = metadata
         self.split = split
         self.load = load
         self.loader = loader
+        # -------------------------------- used for mix up --------------------------------
+        self.mix = None
+        self.num_classes = num_classes
+        self.expand_ratio = 30
+        # -------------------------------- used for mix up --------------------------------
 
         metadata = load_metadata(**self.metadata)
         split_dataset_folds(metadata, **self.split)
         self.train_dataset, self.val_dataset, self.test_dataset = load_data_to_monai_dataset(**self.load)
+
+        # -------------------------------- used for mix up --------------------------------
+        self.original_train_dataset = self.train_dataset
+        length = len(self.train_dataset)
+
+        n = length * self.expand_ratio
+        import numpy as np
+        import torch
+        import torch.nn.functional as f
+        if not self.mix:
+            mix = torch.randint(0, length, (n, 2))
+            mix_ratio = torch.tensor(np.random.beta(1, 1, size=n))
+            self.mix = (mix, mix_ratio)
+        else:
+            mix, mix_ratio = self.mix
+        image = torch.cat([self.train_dataset[i]['image'].unsqueeze(0) for i in range(length)], dim=0)
+        # slices = torch.cat([self.train_dataset[i]['image_slice'].unsqueeze(0) for i in range(length)])
+        label = torch.cat([torch.tensor([self.train_dataset[i]['label']], dtype=torch.long) for i in range(length)])
+        if self.num_classes == 2:
+            label = torch.where(label >= 1, 1, 0)
+        label = f.one_hot(label, num_classes=torch.max(label).item() + 1).float()
+        mix_image = (image[mix[:, 0]] * mix_ratio.unsqueeze(1).unsqueeze(2).unsqueeze(3) +
+                     image[mix[:, 1]] * (1 - mix_ratio).unsqueeze(1).unsqueeze(2).unsqueeze(3))
+        # mix_slice = (slices[mix[:, 0]] * mix_ratio.unsqueeze(1).unsqueeze(2).unsqueeze(3) +
+        #              slices[mix[:, 1]] * (1 - mix_ratio).unsqueeze(1).unsqueeze(2).unsqueeze(3))
+        mix_label = (label[mix[:, 0]] * mix_ratio.unsqueeze(1) +
+                     label[mix[:, 1]] * (1 - mix_ratio).unsqueeze(1))
+        from monai.data import Dataset
+        self.train_dataset = Dataset(data=[{'image': mix_image[i].float(), 'label': mix_label[i],
+                                            # 'image_slice': mix_slice[i].float(),
+                                            'index': torch.tensor(i, dtype=torch.long)} for i in range(n)])
+        # -------------------------------- used for mix up --------------------------------
         logger.info('dataset loaded')
 
     def train_dataloader(self):
