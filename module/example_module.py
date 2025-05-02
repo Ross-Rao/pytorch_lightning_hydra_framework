@@ -1,6 +1,6 @@
 # python import
 import logging
-from typing import Any
+from typing import Any, Union
 # package import
 import torch
 import lightning.pytorch as pl
@@ -20,24 +20,38 @@ __all__ = ['ExampleModule']
 
 class ExampleModule(pl.LightningModule):
     def __init__(self,
-                 model: str,
-                 model_params: dict,
-                 optimizer: str,
-                 optimizer_params: dict,
-                 criterion: str,
-                 criterion_params: dict = None,
-                 lr_scheduler: str = None,
-                 lr_scheduler_params: dict = None,
-                 lr_scheduler_other_params: dict = None):
+                 model: Union[str, list[str]],
+                 model_params: Union[dict, list[dict]],
+                 optimizer: Union[str, list[str]],
+                 optimizer_params: Union[dict, list[dict]],
+                 criterion: Union[str, list[str]],
+                 criterion_params: Union[dict, list[dict]] = None,
+                 lr_scheduler: Union[str, list[str]] = None,
+                 lr_scheduler_params: Union[dict, list[dict]] = None,
+                 lr_scheduler_other_params: Union[dict, list[dict]] = None):
         super().__init__()
         # model structure settings
-        self.model = getattr(models, model)(**model_params)
+        assert isinstance(model, list) == isinstance(model_params, list), \
+            "model and model_params must either both be lists or neither be lists"
+        self.model = getattr(models, model)(**model_params) \
+            if isinstance(model_params, dict) and isinstance(model, str) else \
+            torch.nn.ModuleList([getattr(models, m)(**mp).to(self.device) for m, mp in zip(model, model_params)])
 
         # optimizer settings
-        self.optimizer = getattr(torch.optim, optimizer)(self.parameters(), **optimizer_params)
+        assert isinstance(optimizer, list) == isinstance(optimizer_params, list), \
+            "optimizer and optimizer_params must either both be lists or neither be lists"
+        self.optimizer = getattr(torch.optim, optimizer)(self.parameters(), **optimizer_params) \
+            if isinstance(optimizer, str) and isinstance(optimizer_params, dict) else \
+            [getattr(torch.optim, opt)(m.parameters(), **opt_p)
+             for m, opt, opt_p in zip(self.model, optimizer, optimizer_params)]
 
         # loss function settings
-        self.criterion = get_multi_attr([torch.nn, models], {criterion: criterion_params})[0]
+        self.criterion = get_multi_attr([torch.nn, models], {criterion: criterion_params})[0] \
+            if isinstance(criterion, str) else \
+            torch.nn.ModuleList(
+                [get_multi_attr([torch.nn, models], {c: cp})[0]
+                 for c, cp in zip(criterion, criterion_params)]
+            )
 
         # lr_scheduler settings
         lr_lt = [lr_scheduler, lr_scheduler_params, lr_scheduler_other_params]
@@ -46,14 +60,27 @@ class ExampleModule(pl.LightningModule):
         if lr_scheduler is None:
             self.lr_scheduler = None
         else:
-            lr_scheduler_func = getattr(torch.optim.lr_scheduler, lr_scheduler)  # StepLR, ReduceLROnPlateau, etc.
-            self.lr_scheduler = {
-                'scheduler': lr_scheduler_func(self.optimizer, **lr_scheduler_params),
-                **lr_scheduler_other_params,  # monitor, interval, frequency, etc.
-            }
+            # StepLR, ReduceLROnPlateau, etc.
+            lr_scheduler_func = getattr(torch.optim.lr_scheduler, lr_scheduler) if isinstance(lr_scheduler, str) else \
+                [getattr(torch.optim.lr_scheduler, ls) for ls in lr_scheduler]
+            if isinstance(lr_scheduler_func, list):
+                self.lr_scheduler = [{**{'scheduler': ls(opt, **ls_p)}, **ls_op}
+                                     for opt, ls, ls_p, ls_op in zip(self.optimizer, lr_scheduler_func,
+                                                                     lr_scheduler_params, lr_scheduler_other_params)]
+            else:
+                if isinstance(self.optimizer, list):
+                    self.lr_scheduler = [{**{'scheduler': lr_scheduler_func(opt, **lr_scheduler_params)},
+                                          **lr_scheduler_other_params}
+                                         for opt in self.optimizer]
+                else:
+                    self.lr_scheduler = {
+                        'scheduler': lr_scheduler_func(self.optimizer, **lr_scheduler_params),
+                        **lr_scheduler_other_params,  # monitor, interval, frequency, etc.
+                    }
 
         # metrics
-        n_cls = model_params.get('num_classes', model_params.get('out_features', model_params.get('out_channels', 10)))
+        temp_dt = model_params if isinstance(model_params, dict) else {k: v for d in model_params for k, v in d.items()}
+        n_cls = temp_dt.get('num_classes', temp_dt.get('out_features', temp_dt.get('out_channels', 10)))
         multi_cls_param = dict(average='macro', task='multiclass', num_classes=n_cls)
         self.confusion_matrix = ConfusionMatrix(num_classes=n_cls, task='multiclass').eval()
         self._train_cls_metrics = MetricCollection({
@@ -100,27 +127,20 @@ class ExampleModule(pl.LightningModule):
         """
         set optimizer and lr_scheduler(optional)
         """
-        if self.lr_scheduler is not None:
-            return [self.optimizer], [self.lr_scheduler]
+        optimizer, lr_scheduler = self.optimizer, self.lr_scheduler
+        if lr_scheduler is not None:
+            if isinstance(optimizer, list):
+                return [optimizer[0]], [lr_scheduler[0]]
+            return [optimizer], [lr_scheduler]
         else:
-            return self.optimizer
+            return optimizer
 
     @staticmethod
     def get_batch(batch):
         if isinstance(batch, list):
             return batch
         elif isinstance(batch, dict):
-            # some attributes from (pre)transform
-            # index, neighbor_index: UpdatePatchIndexd
-            # image_slice: DropSliced
-            index = batch.get('index', None)
-            neighbor_index = batch.get('neighbor_index', None)
-            index = index.reshape(-1) if isinstance(index, torch.Tensor) else None
-            neighbor_index = neighbor_index.long().reshape(-1) if isinstance(neighbor_index, torch.Tensor) else None
-            x = (batch['image'], index, neighbor_index)
-            # y = (batch['label'].reshape(-1), batch['image_slice'])  # and metadata
-            y = (batch['label'].reshape(-1))  # and metadata
-            return x, y
+            pass
         else:
             raise ValueError('Invalid batch type')
 
@@ -133,25 +153,27 @@ class ExampleModule(pl.LightningModule):
         else:
             raise ValueError('Invalid batch type')
 
-    def on_train_epoch_start(self, max_search_ratio=0.5, frequency=20):
+    def on_train_epoch_start(self):
         # on_train_epoch_start may not suitable for update model parameters, maybe works?
-        # we update anchor in training_step with anchor_update_frequency
-        current_epoch = self.current_epoch
-        update_epoch = [i for i in range(0, self.trainer.max_epochs, frequency)]
-        if current_epoch in update_epoch:
-            max_epoch = self.trainer.max_epochs
-            search_ratio = current_epoch / max_epoch * max_search_ratio
-            self.criterion.mc.update_anchor(search_rate=search_ratio)
+        pass
 
-    def training_step(self, batch, batch_idx):
+    def model_step(self, batch, batch_idx):
         x, y = self.get_batch(batch)
         model_params = x if isinstance(x, tuple) else (x,)
         y_hat = self.model(*model_params)
-        # self._update_metrics(y_hat, y, "train")  # not necessary, only debug
+        return y, y_hat
 
+    def criterion_step(self, y, y_hat):
         # be sure that y_hat params first and y params later in your criterion function
         criterion_params = (y_hat if isinstance(y_hat, tuple) else (y_hat,)) + (y if isinstance(y, tuple) else (y,))
         loss = self.criterion(*criterion_params)
+        return loss
+
+    def training_step(self, batch, batch_idx):
+        y, y_hat = self.model_step(batch, batch_idx)
+        # self._update_metrics(y_hat, y, "train")  # not necessary, only debug
+
+        loss = self.criterion_step(y, y_hat)
         return loss
 
     def on_train_batch_end(self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int) -> None:
@@ -160,14 +182,10 @@ class ExampleModule(pl.LightningModule):
         self.log_dict(loss_dt, batch_size=self.get_batch_size(batch), prog_bar=True)
 
     def validation_step(self, batch, batch_idx):
-        x, y = self.get_batch(batch)
-        model_params = x if isinstance(x, tuple) else (x,)
-        y_hat = self.model(*model_params)
+        y, y_hat = self.model_step(batch, batch_idx)
         self._update_metrics(y_hat, y, "val")
 
-        # be sure that y_hat params first and y params later in your criterion function
-        criterion_params = (y_hat if isinstance(y_hat, tuple) else (y_hat,)) + (y if isinstance(y, tuple) else (y,))
-        loss = self.criterion(*criterion_params)
+        loss = self.criterion_step(y, y_hat)
         return loss
 
     def on_validation_batch_end(
@@ -179,9 +197,8 @@ class ExampleModule(pl.LightningModule):
         self.log_dict(loss_dt, batch_size=self.get_batch_size(batch), prog_bar=True)
 
     def test_step(self, batch, batch_idx):
-        x, y = self.get_batch(batch)
-        model_params = x if isinstance(x, tuple) else (x,)
-        y_hat = self.model(*model_params)
+        y, y_hat = self.model_step(batch, batch_idx)
+
         # `patch_coords` comes from `GridPatchDataset`, used for saving images
         if isinstance(batch, dict):
             extra_params = {'index': batch.get('index', None), 'coords': batch.get('patch_coords', None)}
@@ -215,8 +232,11 @@ class ExampleModule(pl.LightningModule):
 
     def on_test_epoch_end(self):
         if self.confusion_matrix.update_count > 0:
-            plt, _ = plot_confusion_matrix(self.confusion_matrix.compute())
+            cm = self.confusion_matrix.compute()
+            plt, _ = plot_confusion_matrix(cm)
             self.logger.experiment.add_figure(f"test_confusion_matrix", plt)
+            logger.info(f"Confusion Matrix:\n{cm}")
+            self.confusion_matrix.reset()
         for metrics_dict in [self.cls_metrics['test'], self.reg_metrics['test'], self.recon_metrics['test']]:
             for metric_name, metric in metrics_dict.items():
                 if metric.update_count > 0:
@@ -274,7 +294,7 @@ class ExampleModule(pl.LightningModule):
 
         # 更新其他指标
         for metric_name, metric in self.recon_metrics[stage].items():
-            if metric_name != "lpips":
+            if metric_name != f"{stage}/lpips":
                 metric.update(y_hat, y)
         # 单独更新lpips
         self.recon_metrics[stage]["lpips"].update(y_hat_lpips, y_lpips)
