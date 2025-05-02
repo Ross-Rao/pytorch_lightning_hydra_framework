@@ -1,23 +1,23 @@
 # ilab dataset
 
+manual_seed: 42
 metadata:
     data_dir: '${oc.env:DATASET_LOCATION, ./data}/MVI数据/ROI_64'
     # parser is used to parse the dataset directory
     # each key-value pair will be a field in the DataFrame
     parser:
-        image: "lambda path: path.endswith('.jpg')"  # `image` must be included
+        image: "lambda path: path.endswith('.jpg') and 'T1_' in path"  # `image` must be included
         label: "lambda path: int(os.path.basename(path).split('.')[0].split('_')[0][-1])"  # M0: 0, M1: 1, M2: 2
         patient_id: "lambda path: os.path.basename(path).split('.')[0].split('_')[0][:2]"
-        model: "lambda path: os.path.basename(path).split('.')[0].split('_')[1]"
         number: "lambda path: os.path.basename(path).split('.')[0].split('_')[2]"
-#    group_by: ['label', 'patient_id', 'model']  # groupby op will stack the `image` with the same group
+    group_by: ['label', 'patient_id']  # groupby op will stack the `image` with the same group
 split:
     split_cols: ['patient_id']  # split by `patient_id` to avoid data leakage
-    test_split_ratio: 0.1
-    n_folds: 10
+    test_split_ratio: 0.2
+    n_folds: 5
     shuffle: true
-    seed: 42
-    save_dir: "preprocess/roi64-no-patch-no-stack/split"
+    seed: '${dataset.manual_seed}'
+    save_dir: "preprocess/roi64-T1-no-patch-stack-no-recon-5-seed${dataset.manual_seed}/split"
     save_name_dict:
         train: 'train_{0}.csv'  # {0} is a placeholder for fold number
         val: 'val_{0}.csv'
@@ -26,7 +26,7 @@ split:
     # indices are reset by order: train, val, test
     # it works by: `split_dataset_folds` by param `reset_split_index` in modules/monai_data_module.py
 load:
-    load_dir: "preprocess/roi64-no-patch-no-stack/split"
+    load_dir: "preprocess/roi64-T1-no-patch-stack-no-recon-5-seed${dataset.manual_seed}/split"
     load_name_dict:
         train: 'train_{0}.csv'  # {0} is a placeholder for fold number
         val: 'val_{0}.csv'
@@ -37,7 +37,7 @@ load:
     transform:
         LoadImaged:
             keys: ['image']
-        EnsureChannelFirstd:
+        StackImaged:
             keys: ['image']
         ToTensord:
             keys: ['image']
@@ -48,15 +48,15 @@ load:
 loader:
     train_loader:
         shuffle: False
-        batch_size: 128
+        batch_size: 32
         num_workers: 4
         pin_memory: true
         persistent_workers: true
     val_loader:
         shuffle: False
         num_workers: 4
-        batch_size: 64
+        batch_size: 16
     test_loader:
         shuffle: False
         num_workers: 4
-        batch_size: 64
+        batch_size: 16
