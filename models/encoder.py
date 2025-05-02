@@ -35,7 +35,10 @@ class ResNetEncoder(nn.Module):
 
         if original_in_channels != in_channels:
             assert in_channels > 0, 'in_channels must be greater than 0'
-            conv = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            # ------------------------------------- used in encoder-decoder -------------------------------------
+            conv = nn.Conv2d(in_channels, 64, kernel_size=7, stride=1, padding=3, bias=False)
+            # conv = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            # ------------------------------------- used in encoder-decoder -------------------------------------
             data = self.resnet.conv1.weight.data
 
             # copy the data from the original weight to the new weight
