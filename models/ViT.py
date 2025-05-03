@@ -95,6 +95,9 @@ class ViTModule(nn.Module):
                  dropout=0.1,
                  n_layers=12):
         super().__init__()
+        self.in_channels = in_channels
+        self.num_classes = num_classes
+        self.patch_size = patch_size
         self.patch_embedding = PatchEmbedding(in_channels, patch_size, emb_size, img_size)
         self.transformer_encoder = TransformerSequentialEncoder(d_model=d_model, num_heads=num_heads,
                                                                 dim_feedforward=dim_feedforward, dropout=dropout,

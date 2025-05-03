@@ -135,13 +135,17 @@ class ExampleModule(pl.LightningModule):
         else:
             return optimizer
 
-    @staticmethod
-    def get_batch(batch):
+    def get_batch(self, batch):
         if isinstance(batch, list):
             return batch
         elif isinstance(batch, dict):
-            x = (batch['image'])
-            y = (batch['label'].reshape(-1))  # and metadata
+            x = batch['image']
+            b, c, h, w = x.size()
+            x = x.reshape(b * c, 1, h, w)
+            y = batch['label'].reshape(-1) if batch['label'].shape == torch.Size([b, 1]) else batch['label']
+            y = y.repeat_interleave(c, dim=0)
+            if self.model.num_classes == 2 and y.ndim == 1:
+                y = torch.where(y >= 1, 1, 0)
             return x, y
         else:
             raise ValueError('Invalid batch type')

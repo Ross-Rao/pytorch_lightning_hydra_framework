@@ -86,7 +86,7 @@ def main(cfg: DictConfig):
         metadata_cfg, split_cfg = dataset_config.get("metadata"), dataset_config.get("split")
         load_cfg, loader_cfg = dataset_config.get("load"), dataset_config.get("loader")
         datamodule = MonaiDataModule(metadata_cfg, split_cfg, load_cfg, loader_cfg,
-                                     num_classes=cfg.get("model").get("model_params")[1].get("num_classes"))
+                                     num_classes=cfg.get("model").get("model_params").get("num_classes"))
     logger.info("data module built.")
 
     # build model

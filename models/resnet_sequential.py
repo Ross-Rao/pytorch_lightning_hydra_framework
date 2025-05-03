@@ -129,6 +129,7 @@ class ResNet18Sequential(nn.Sequential):
             ResNet18SequentialBackbone(activation, in_channels),
             ResNetSequentialClassifierHead(num_classes, 512),
         )
+        self.num_classes = num_classes
 
 
 class ResNet34Sequential(nn.Sequential):
@@ -137,6 +138,7 @@ class ResNet34Sequential(nn.Sequential):
             ResNet34SequentialBackbone(activation, in_channels),
             ResNetSequentialClassifierHead(num_classes, 512),
         )
+        self.num_classes = num_classes
 
 
 class MiniResNetSequential(nn.Sequential):
