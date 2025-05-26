@@ -373,6 +373,7 @@ class Stage1Model(nn.Module):
                  encoder_out_channels=1,
                  hidden_dim=512,
                  npc_dim=128,
+                 perceptual_loss_ratio=0,
                  activation='ReLU'):
         super().__init__()
         self.encoder_in_channels = encoder_in_channels
@@ -383,6 +384,9 @@ class Stage1Model(nn.Module):
         self.act = getattr(nn, activation)()
         self.mc = MemoryCluster(n_samples, npc_dim, neighbors, n_cluster, temperature, momentum, const)
         self.recon_loss = nn.MSELoss(reduction='mean')
+        from models.loss import PerceptualLoss
+        self.perceptual_loss = PerceptualLoss()
+        self.perceptual_loss_ratio = perceptual_loss_ratio
 
     def forward(self, x, index, local_neighbor_indices, loss=True):
         assert x.size(-1) == 64 or x.size(-2) == 64, 'input size should be 64x64'
@@ -396,7 +400,12 @@ class Stage1Model(nn.Module):
             cluster = self.mc.get_cluster(npc_x)
             return cluster, hid_x
         loss_dt = self.mc(npc_x, index, local_neighbor_indices)
-        recon = self.recon_loss(x_hat, x)
+        # used in old version(20250412)
+        # recon = self.recon_loss(x_hat, x)
+        if self.perceptual_loss_ratio > 0:
+            recon = self.recon_loss(x_hat, x) + self.perceptual_loss(x_hat, x) * self.perceptual_loss_ratio
+        else:
+            recon = self.recon_loss(x_hat, x)
         loss_dt.update({'recon_loss': recon})
         return loss_dt
 
@@ -420,12 +429,13 @@ class Stage1Model(nn.Module):
 
 
 class Stage1ModelLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, recon_ratio=1):
         super().__init__()
+        self.recon_ratio = recon_ratio
 
     def forward(self, loss_dt):
         if self.training:
-            loss = loss_dt['instance_loss'] + loss_dt['anchor_loss'] + loss_dt['recon_loss']
+            loss = loss_dt['instance_loss'] + loss_dt['anchor_loss'] + loss_dt['recon_loss'] * self.recon_ratio
             # loss = auto_scaled_loss([loss_dt['instance_loss'] + loss_dt['anchor_loss'], loss_dt['recon_loss']],)
         else:
             # use for val_loss to prevent early stop
@@ -494,13 +504,15 @@ class Stage2Model(nn.Module):
 
 
 class Stage2ModelLoss(nn.Module):
-    def __init__(self, num_classes=3):
+    def __init__(self, num_classes=3, cls_class_ratio=1/3):
         super().__init__()
         self.num_classes = num_classes
+        if isinstance(cls_class_ratio, str):
+            cls_class_ratio = eval(cls_class_ratio)
         if num_classes == 3:
             self.cls_loss = nn.CrossEntropyLoss()
         else:  # 2
-            self.register_buffer('cls_weight', torch.tensor([2 / 3, 1 / 3], dtype=torch.float32))
+            self.register_buffer('cls_weight', torch.tensor([1 - cls_class_ratio, cls_class_ratio], dtype=torch.float32))
             self.cls_loss = nn.CrossEntropyLoss(weight=self.cls_weight)
 
     def forward(self, pred_cls, cls):
@@ -515,3 +527,30 @@ class Stage2ModelLoss(nn.Module):
         else:
             loss = self.cls_loss(pred_cls, cls)
         return loss
+    
+
+# class Stage2ModelLoss(nn.Module):
+#     def __init__(self, num_classes=3):
+#         super().__init__()
+#         self.gamma = 2.0
+#         self.epsilon = 1e-9
+#         self.num_classes = num_classes
+#         if num_classes == 3:
+#             self.cls_loss = nn.CrossEntropyLoss()
+#         else:  # 2
+#             self.register_buffer('cls_weight', torch.tensor([2 / 3, 1 / 3], dtype=torch.float32))
+#             self.cls_loss = nn.CrossEntropyLoss(weight=self.cls_weight)
+
+#     def forward(self, pred_cls, cls):
+#         if cls.ndim == 1:
+#             cls = cls.unsqueeze(1)  # (b, 1)
+#             cls = torch.zeros_like(pred_cls).scatter_(1, cls, 1)  # (b, 2)
+#         pred_cls = F.softmax(pred_cls, dim=1)
+#         p_t = cls * pred_cls + (1 - cls) * (1 - pred_cls)
+#         loss = -cls * torch.pow(1 - p_t, self.gamma) * torch.log(pred_cls + self.epsilon)
+#         if self.num_classes == 2:
+#             loss = torch.sum(loss * self.cls_weight, dim=1)
+#         else:
+#             loss = torch.sum(loss, dim=1)
+#         loss = torch.mean(loss)
+#         return loss

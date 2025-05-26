@@ -251,7 +251,8 @@ class MonaiDataModule(pl.LightningDataModule):
                  load: dict,
                  loader: dict,
                  # --------- used for mix up ---------
-                 num_classes: int = 2
+                 num_classes: int = 2,
+                 expand_ratio: int = 30,
                  # --------- used for mix up ---------
                  ):
         super().__init__()
@@ -262,7 +263,7 @@ class MonaiDataModule(pl.LightningDataModule):
         # -------------------------------- used for mix up --------------------------------
         self.mix = None
         self.num_classes = num_classes
-        self.expand_ratio = 30
+        self.expand_ratio = expand_ratio
         # -------------------------------- used for mix up --------------------------------
 
         metadata = load_metadata(**self.metadata)

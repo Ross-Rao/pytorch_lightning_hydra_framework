@@ -629,10 +629,13 @@ def main(cfg: DictConfig):
                 self.x = nn.Parameter(torch.randn(self.img.size(0), 1, 64, 64, requires_grad=True))
                 self.threshold = 0.7
 
-            def forward(self):
+            def forward(self, use_mask=True):
                 self.img = self.img.to(self.device)
                 mask = torch.sigmoid(self.x)  # 使用 Sigmoid 函数将 mask 转换为 [0, 1] 范围
-                x = self.img * mask
+                if use_mask:
+                    x = self.img * mask
+                else:
+                    x = self.img
                 hid_x = self.encoder(x).reshape(x.size(0), -1, 4, 4)
                 x_hat = self.decoder(hid_x)
                 hid_x = self.pool(hid_x).squeeze()
@@ -643,7 +646,7 @@ def main(cfg: DictConfig):
                 logit_pred, x_hat = self.forward()
                 mask = torch.sigmoid(self.x)  # 使用 Sigmoid 函数将 mask 转换为 [0, 1] 范围
                 mask = (mask > self.threshold).float()
-                loss_x = self.loss_fn(x_hat, self.img * mask) + self.perceptual_loss(x_hat, self.img * mask) * 2
+                loss_x = self.loss_fn(x_hat, self.img * mask)
                 indices = self.m0.mc.get_cluster(logit_pred).to(self.device).unsqueeze(1)
                 cluster = torch.gather(self.logit_tensor, 0, indices.expand(-1, self.logit_tensor.shape[1]))
                 loss_logit = self.loss_fn(cluster, logit_pred)
@@ -656,8 +659,7 @@ def main(cfg: DictConfig):
 
                 return total_loss
 
-            def on_train_end(self) -> None:
-                # 在训练结束时保存最终的质心图像
+            def on_train_start(self) -> None:
                 save_path = os.path.join(self.save_dir, 'masks')
                 os.makedirs(save_path, exist_ok=True)
                 original_images = self.img.detach().cpu().numpy()
@@ -665,6 +667,12 @@ def main(cfg: DictConfig):
                                                           for i in range(original_images.shape[0])])
                 plt.imsave(os.path.join(save_path, f'original_images.png'),
                            grid_original_images, cmap='gray')
+
+                _, recon_images = self.forward()
+                grid_recon_images = self._create_grid([recon_images[i, 0, :, :]
+                                                       for i in range(recon_images.shape[0])])
+                plt.imsave(os.path.join(save_path, f'recon_images.png'),
+                           grid_recon_images, cmap='gray')
 
             @staticmethod
             def _create_grid(visualizations):

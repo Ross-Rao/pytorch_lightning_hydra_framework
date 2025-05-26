@@ -69,3 +69,34 @@ def auto_scaled_loss(loss_lt: Union[list[torch.Tensor], torch.Tensor]) -> torch.
         if loss_lt[i] > 0:
             final_loss += loss_lt[i] / (loss_lt[i] / loss_lt[0]).detach()
     return final_loss
+
+
+class BinaryFocalLoss(nn.Module):
+    def __init__(self, alpha=None, gamma=2.0, epsilon=1.e-9, reduction='mean'):
+        super().__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.epsilon = epsilon
+        self.reduction = reduction
+
+    def forward(self, inputs, targets):
+        if targets.dim() == 1:
+            targets = targets.unsqueeze(1)  # (b, 1)
+            targets = torch.zeros_like(inputs).scatter_(1, targets, 1)  # (b, 2)
+
+        # 计算 p_t
+        p_t = targets * inputs + (1 - targets) * (1 - inputs)  # (b, 2)
+
+        # 计算 Focal Loss
+        loss = -self.alpha * torch.pow(1 - p_t, self.gamma) * torch.log(p_t + self.epsilon)  # (b, 2)
+
+        # 仅对正类计算损失
+        loss = loss * targets
+
+        # 根据 reduction 参数进行损失的汇总
+        if self.reduction == 'mean':
+            return loss.sum() / targets.sum()  # 对正类的损失求平均
+        elif self.reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss

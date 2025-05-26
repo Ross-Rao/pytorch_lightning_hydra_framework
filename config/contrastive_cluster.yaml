@@ -9,15 +9,16 @@ defaults:
 
 # trainer settings
 stage_change_epoch: 100  # stage change epoch
-anchor_update_frequency: 10  # anchor update frequency
+anchor_update_frequency: 5  # anchor update frequency
 max_search_ratio: 1.0  # max search ratio
+expand_ratio: 30
 #  contains the configuration for the pytorch_lightning.trainer.
 callbacks:  # inline definition of callbacks, don't change the name
     # relevant input arguments in main.py
     CustomModelCheckpoint:
         filename: "model_{epoch:02d}_{val_loss:.2f}"
         monitor: "val_loss"  # log in module/example_module.py
-        save_top_k: 5
+        save_top_k: 7
         mode: "min"
         start_epoch: '${stage_change_epoch}'
         save_last: True
@@ -45,6 +46,7 @@ criterion:
     criterion_params:
         - 
         - num_classes: '${model.model_params[1].num_classes}'
+          cls_class_ratio: 0.35
 
 optimizer:
     optimizer:
@@ -55,13 +57,14 @@ optimizer:
           betas: [0.9, 0.999]
         - lr: 5e-5
           betas: [0.9, 0.999]
-n_cluster: 8
+n_cluster: 6
 model:
     model:
         - 'Stage1Model'
         - 'Stage2Model'
     model_params:
         - n_cluster: '${n_cluster}'
+          perceptual_loss_ratio: 1.2
         - num_classes: 3
           n_cluster: '${n_cluster}'
           seq_len: 3
