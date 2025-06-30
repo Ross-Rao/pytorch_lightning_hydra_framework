@@ -13,7 +13,7 @@ metadata:
     group_by: ['label', 'patient_id']  # groupby op will stack the `image` with the same group
 split:
     split_cols: ['patient_id']  # split by `patient_id` to avoid data leakage
-    test_split_ratio: 0.2
+    test_split_ratio: 0.15
     n_folds: 5
     shuffle: true
     seed: '${dataset.manual_seed}'
@@ -48,15 +48,15 @@ load:
 loader:
     train_loader:
         shuffle: False
-        batch_size: 32
-        num_workers: 4
+        batch_size: 512
+        num_workers: 6
         pin_memory: true
         persistent_workers: true
     val_loader:
         shuffle: False
-        num_workers: 4
-        batch_size: 16
+        num_workers: 6
+        batch_size: 128
     test_loader:
         shuffle: False
-        num_workers: 4
-        batch_size: 16
+        num_workers: 6
+        batch_size: 128

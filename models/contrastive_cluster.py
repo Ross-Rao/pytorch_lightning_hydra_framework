@@ -364,6 +364,7 @@ class MemoryCluster(nn.Module):
 class Stage1Model(nn.Module):
     def __init__(self,
                  n_samples,
+                 img_size=64,
                  neighbors=5,
                  n_cluster=10,
                  temperature=0.07,
@@ -379,7 +380,8 @@ class Stage1Model(nn.Module):
         self.encoder_in_channels = encoder_in_channels
         # stage 1
         self.unet = UNet64(in_channels=encoder_in_channels, out_channels=encoder_out_channels)
-        self.pool = nn.AvgPool2d(kernel_size=8, stride=8)
+        pool_size = img_size // 8  # unet64 downsample 3 times
+        self.pool = nn.AvgPool2d(kernel_size=pool_size, stride=pool_size)
         self.fc = nn.Linear(hidden_dim, npc_dim)
         self.act = getattr(nn, activation)()
         self.mc = MemoryCluster(n_samples, npc_dim, neighbors, n_cluster, temperature, momentum, const)
@@ -389,7 +391,6 @@ class Stage1Model(nn.Module):
         self.perceptual_loss_ratio = perceptual_loss_ratio
 
     def forward(self, x, index, local_neighbor_indices, loss=True):
-        assert x.size(-1) == 64 or x.size(-2) == 64, 'input size should be 64x64'
         assert x.size(1) == self.encoder_in_channels, (f'input channel should be {self.encoder_in_channels},'
                                                        f' but got {x.size(1)}')
 

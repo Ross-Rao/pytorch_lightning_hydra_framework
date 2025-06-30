@@ -13,6 +13,7 @@ from torchmetrics.utilities.plot import plot_confusion_matrix
 # local import
 import models
 from utils.util import get_multi_attr, patches2images
+from utils import lr_scheduler as custom_lr_scheduler
 
 logger = logging.getLogger(__name__)
 __all__ = ['ExampleModule']
@@ -61,8 +62,9 @@ class ExampleModule(pl.LightningModule):
             self.lr_scheduler = None
         else:
             # StepLR, ReduceLROnPlateau, etc.
-            lr_scheduler_func = getattr(torch.optim.lr_scheduler, lr_scheduler) if isinstance(lr_scheduler, str) else \
-                [getattr(torch.optim.lr_scheduler, ls) for ls in lr_scheduler]
+            lr_scheduler_func = get_multi_attr([torch.optim.lr_scheduler, custom_lr_scheduler], lr_scheduler) \
+            if isinstance(lr_scheduler, str) else \
+                [get_multi_attr([torch.optim.lr_scheduler, custom_lr_scheduler], ls) for ls in lr_scheduler]
             if isinstance(lr_scheduler_func, list):
                 self.lr_scheduler = [{**{'scheduler': ls(opt, **ls_p)}, **ls_op} 
                                      for opt, ls, ls_p, ls_op in zip(self.optimizer, lr_scheduler_func,
@@ -181,7 +183,7 @@ class ExampleModule(pl.LightningModule):
                 if not self.training:
                     index += 1000000
             neighbor_index = [(c * index.unsqueeze(1) + torch.roll(torch.arange(c), i).to(image.device)).reshape(-1)
-                              for i in range(1, 3)]
+                              for i in range(1, c)]
             neighbor_index = torch.stack(neighbor_index, dim=1)
             index = c * index.unsqueeze(1) + torch.arange(c).to(image.device)
             index = index.reshape(-1)

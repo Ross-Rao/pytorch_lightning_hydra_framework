@@ -11,12 +11,13 @@ optuna==4.2.1
 pandas==2.2.3
 pingouin==0.5.5
 scikit_learn==1.5.2
+scikit-image==0.24.0
 scipy==1.13.1
 setuptools==75.8.0
 SimpleITK==2.4.1
-# torch==2.6.0
-# torchmetrics==1.6.1
-# torchvision==0.21.0
+torch==2.6.0
+torchmetrics==1.7.1
+torchvision==0.21.0
 umap_learn==0.5.7
 psutil==7.0.0
 tensorboard==2.19.0
